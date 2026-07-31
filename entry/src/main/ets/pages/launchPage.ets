@@ -11,8 +11,11 @@ import { common } from '@kit.AbilityKit';
 export struct launchPage {
   modifier = new MyModifier()
   context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-  async aboutToAppear() {
 
+  async aboutToAppear() {
+    setTimeout(()=>{
+      HMRouterMgr.push({pageUrl:PAGE_PATH.HOME_PAGE})
+    },1000)
   }
 
   build() {
@@ -28,10 +31,11 @@ export struct launchPage {
       }) {
         Column(){
           Text('启动页')
-          Button('homePage').onClick(()=>{
-            HMRouterMgr.push({pageUrl:PAGE_PATH.HOME_PAGE})
-          })
-        }.width('100%')
+            .fontSize(20)
+        }
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .width('100%')
         .height('100%')
       }
     }
