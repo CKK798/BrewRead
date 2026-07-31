@@ -10,6 +10,7 @@ export struct homePage{
   build() {
     Column(){
       Text('应用入口')
+
     }
     .backgroundColor(Color.Brown)
     .width('100%')
