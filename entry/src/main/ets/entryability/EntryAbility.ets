@@ -2,6 +2,7 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { HMRouterMgr } from '@hadss/hmrouter';
+import { DatabaseManager } from '../services/database/DatabaseManager';
 
 const DOMAIN = 0x0000;
 
@@ -15,6 +16,20 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
     HMRouterMgr.init({
       context: this.context,
+    })
+
+    /**
+     * 数据库启动初始化
+     *
+     * 多行说明：
+     * 1. 应用进入 onCreate 后立即初始化 RelationalStore，保证页面和 Repository 使用前表结构已存在。
+     * 2. DatabaseManager 内部会缓存初始化 Promise，重复调用不会重复打开数据库或重复执行建表流程。
+     * 3. 初始化失败只记录日志，不阻塞窗口加载，后续页面执行数据操作时仍会给出明确错误。
+     */
+    DatabaseManager.init(this.context).then(() => {
+      hilog.info(DOMAIN, 'testTag', '%{public}s', 'Database initialized');
+    }).catch((err: Error) => {
+      hilog.error(DOMAIN, 'testTag', 'Database init failed. Cause: %{public}s', JSON.stringify(err));
     })
   }
 
