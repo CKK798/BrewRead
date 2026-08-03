@@ -1,4 +1,4 @@
-import { HMRouter } from '@hadss/hmrouter';
+import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { PAGE_PATH } from '../pagePath';
 
 interface JournalEntryItem {
@@ -82,6 +82,9 @@ export struct journalPage {
           .textAlign(TextAlign.Center)
           .backgroundColor('#C2865E')
           .borderRadius(19)
+          .onClick(() => {
+            this.openEntryEditPage()
+          })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
@@ -219,5 +222,17 @@ export struct journalPage {
     .backgroundColor('#C2865E')
     .borderRadius(25)
     .shadow({ radius: 10, color: '#1FC2865E', offsetX: 0, offsetY: 4 })
+  }
+
+  /**
+   * 打开写阅读记录页面
+   *
+   * 多行说明：
+   * 1. 记录页作为一级 Tab 保持时间线展示职责，写记录表单通过二级页面承载，避免页面过重。
+   * 2. 使用 PAGE_PATH.ENTRY_EDIT_PAGE 复用新增和编辑记录页面，后续可通过路由参数区分新建或编辑。
+   * 3. 写记录页保存成功后 pop 返回记录页，后续记录页接入真实数据时可在 aboutToAppear 刷新时间线。
+   */
+  openEntryEditPage() {
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.ENTRY_EDIT_PAGE })
   }
 }
