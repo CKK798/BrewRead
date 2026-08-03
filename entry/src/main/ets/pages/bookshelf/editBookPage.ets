@@ -3,51 +3,65 @@ import { BookEntity, BookStatus } from '../../models/BookModel';
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
-import { IdUtils } from '../../utils/IdUtils';
 import { ValidationResult, ValidationUtils } from '../../utils/ValidationUtils';
 
 /**
- * 添加书籍页面
+ * 编辑书籍页面
  *
  * 多行说明：
- * 1. 本页面是书架模块 CRUD 闭环的第一个可写入口，负责收集书名、作者、ISBN、总页数和阅读状态。
- * 2. 保存前统一调用 ValidationUtils 校验输入，页面只负责展示错误文案，具体规则沉淀在工具层方便复用。
- * 3. 校验通过后组装 BookEntity 并调用 BookRepository.insertBook 写入本地数据库，成功后返回上一页。
+ * 1. 该页面复用添加书籍页的字段规则，但通过 selectedBookId 加载已有实体，避免编辑时重新生成 id。
+ * 2. 页面保存时只更新书籍自身字段，createdAt、sortOrder 和 id 保持原值，确保书架顺序和关联阅读记录不受影响。
+ * 3. 书籍不存在、加载失败或校验失败时保留错误信息，避免用户误以为数据已经保存。
  */
-@HMRouter({ pageUrl: PAGE_PATH.BOOK_ADD_PAGE })
+@HMRouter({ pageUrl: PAGE_PATH.BOOK_EDIT_PAGE })
 @ComponentV2
-export struct addBookPage {
+export struct editBookPage {
+  @Local bookId: string = ''
   @Local bookName: string = ''
   @Local author: string = ''
   @Local isbn: string = ''
   @Local totalPagesText: string = ''
   @Local selectedStatus: BookStatus = BookStatus.READING
-  @Local errorMessage: string = ''
+  @Local loading: boolean = false
   @Local saving: boolean = false
+  @Local errorMessage: string = ''
   private statusList: BookStatus[] = [BookStatus.READING, BookStatus.FINISHED, BookStatus.WANT]
+
+  async aboutToAppear() {
+    this.bookId = AppStorage.get<string>('selectedBookId') ?? ''
+    await this.loadBook()
+  }
 
   build() {
     Column() {
       this.Header()
       Scroll() {
         Column() {
-          this.InputGroup('书名', '请输入书名', this.bookName, true)
-          this.InputGroup('作者', '请输入作者', this.author, false)
-          this.InputGroup('ISBN', '可选，10 或 13 位数字', this.isbn, false)
-          this.InputGroup('总页数', '可选，例如 384', this.totalPagesText, false)
-          this.StatusSelector()
-          if (this.errorMessage.length > 0) {
-            Text(this.errorMessage)
-              .fontSize(BrewFontSize.caption)
-              .fontColor('#B65A4B')
-              .margin({ top: BrewSpacing.smallGap })
+          if (this.loading) {
+            Text('正在读取书籍信息...')
+              .fontSize(BrewFontSize.secondary)
+              .fontColor(BrewTheme.light.textSecondary)
+              .width('100%')
+              .height(120)
+              .textAlign(TextAlign.Center)
+          } else {
+            this.InputGroup('书名', '请输入书名', this.bookName, true)
+            this.InputGroup('作者', '请输入作者', this.author, false)
+            this.InputGroup('ISBN', '可选，10 或 13 位数字', this.isbn, false)
+            this.InputGroup('总页数', '可选，例如 384', this.totalPagesText, false)
+            this.StatusSelector()
+            if (this.errorMessage.length > 0) {
+              Text(this.errorMessage)
+                .fontSize(BrewFontSize.caption)
+                .fontColor('#B65A4B')
+                .margin({ top: 8 })
+            }
+            this.SaveButton()
           }
-          this.SaveButton()
         }
         .width('100%')
         .padding({ left: BrewSpacing.pagePadding, right: BrewSpacing.pagePadding, top: 18, bottom: 28 })
       }
-      .align(Alignment.Top)
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)
@@ -70,18 +84,11 @@ export struct addBookPage {
         .onClick(() => {
           HMRouterMgr.pop()
         })
-      Column() {
-        Text('添加新书')
-          .fontSize(BrewFontSize.title)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(BrewTheme.light.textPrimary)
-        Text('标记你想读或正在读的书')
-          .fontSize(BrewFontSize.caption)
-          .fontColor(BrewTheme.light.textSecondary)
-          .margin({ top: 4 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      Text('编辑书籍')
+        .fontSize(BrewFontSize.title)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(BrewTheme.light.textPrimary)
+        .layoutWeight(1)
     }
     .width('100%')
     .padding({ left: 6, right: BrewSpacing.pagePadding, top: 8, bottom: 8 })
@@ -94,7 +101,6 @@ export struct addBookPage {
       Row() {
         Text(label)
           .fontSize(BrewFontSize.secondary)
-          .fontWeight(FontWeight.Medium)
           .fontColor(BrewTheme.light.textPrimary)
         if (required) {
           Text(' *')
@@ -102,18 +108,12 @@ export struct addBookPage {
             .fontColor('#B65A4B')
         }
       }
-      .width('100%')
       .margin({ bottom: 8 })
-
       TextInput({ placeholder: placeholder, text: value })
         .height(48)
         .fontSize(BrewFontSize.body)
-        .fontColor(BrewTheme.light.textPrimary)
-        .placeholderColor(BrewTheme.light.textTertiary)
         .backgroundColor(BrewTheme.light.cardBg)
         .borderRadius(BrewRadius.small)
-        .padding({ left: 14, right: 14 })
-        .border({ width: 0.5, color: '#0D000000' })
         .onChange((text: string) => {
           this.onInputChange(label, text)
         })
@@ -128,7 +128,6 @@ export struct addBookPage {
     Column() {
       Text('阅读状态')
         .fontSize(BrewFontSize.secondary)
-        .fontWeight(FontWeight.Medium)
         .fontColor(BrewTheme.light.textPrimary)
         .margin({ bottom: 8 })
       Row() {
@@ -136,7 +135,6 @@ export struct addBookPage {
           Text(this.getStatusText(status))
             .fontSize(BrewFontSize.secondary)
             .fontColor(this.selectedStatus === status ? '#FFFFFF' : BrewTheme.light.textSecondary)
-            .fontWeight(this.selectedStatus === status ? FontWeight.Medium : FontWeight.Regular)
             .textAlign(TextAlign.Center)
             .layoutWeight(1)
             .height(38)
@@ -152,7 +150,6 @@ export struct addBookPage {
       .padding(4)
       .backgroundColor(BrewTheme.light.cardBg)
       .borderRadius(23)
-      .border({ width: 0.5, color: '#0D000000' })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
@@ -161,61 +158,70 @@ export struct addBookPage {
 
   @Builder
   SaveButton() {
-    Text(this.saving ? '保存中...' : '保存书籍')
+    Text(this.saving ? '保存中...' : '保存修改')
       .fontSize(BrewFontSize.body)
-      .fontWeight(FontWeight.Medium)
       .fontColor('#FFFFFF')
       .width('100%')
       .height(50)
       .textAlign(TextAlign.Center)
       .backgroundColor(this.saving ? '#80C2865E' : BrewTheme.light.primary)
       .borderRadius(25)
-      .shadow({ radius: 10, color: '#1FC2865E', offsetX: 0, offsetY: 4 })
       .onClick(() => {
         this.saveBook()
       })
   }
 
-  onInputChange(label: string, text: string) {
-    if (label === '书名') {
-      this.bookName = text
-    } else if (label === '作者') {
-      this.author = text
-    } else if (label === 'ISBN') {
-      this.isbn = text
-    } else if (label === '总页数') {
-      this.totalPagesText = text
+  async loadBook() {
+    if (this.bookId.length === 0) {
+      this.errorMessage = '没有找到要编辑的书籍'
+      return
     }
+    this.loading = true
+    try {
+      const book: BookEntity | undefined = await BookRepository.queryBookById(this.bookId)
+      if (book === undefined) {
+        this.errorMessage = '书籍不存在或已被删除'
+      } else {
+        this.bookName = book.name
+        this.author = book.author ?? ''
+        this.isbn = book.isbn ?? ''
+        this.totalPagesText = book.totalPages === undefined ? '' : book.totalPages.toString()
+        this.selectedStatus = book.status
+      }
+    } catch (err) {
+      this.errorMessage = '书籍加载失败，请稍后重试'
+    }
+    this.loading = false
   }
 
   async saveBook() {
-    if (this.saving) {
-      return
-    }
     const validation: ValidationResult = this.validateForm()
-    if (!validation.valid) {
+    if (!validation.valid || this.saving) {
       this.errorMessage = validation.message
       return
     }
-
     this.saving = true
-    this.errorMessage = ''
-    const now: number = new Date().getTime()
-    const pages: number = this.parseTotalPages()
-    const book: BookEntity = {
-      id: IdUtils.createId('book'),
-      name: this.bookName.trim(),
-      author: this.author.trim().length > 0 ? this.author.trim() : undefined,
-      isbn: ValidationUtils.normalizeIsbn(this.isbn),
-      totalPages: pages > 0 ? pages : undefined,
-      status: this.selectedStatus,
-      sortOrder: now,
-      createdAt: now,
-      updatedAt: now
-    }
-
     try {
-      await BookRepository.insertBook(book)
+      const oldBook: BookEntity | undefined = await BookRepository.queryBookById(this.bookId)
+      if (oldBook === undefined) {
+        this.errorMessage = '书籍不存在或已被删除'
+        this.saving = false
+        return
+      }
+      const pages: number = this.parseTotalPages()
+      const updatedBook: BookEntity = {
+        id: oldBook.id,
+        name: this.bookName.trim(),
+        author: this.author.trim().length === 0 ? undefined : this.author.trim(),
+        isbn: ValidationUtils.normalizeIsbn(this.isbn),
+        totalPages: pages > 0 ? pages : undefined,
+        coverPath: oldBook.coverPath,
+        status: this.selectedStatus,
+        sortOrder: oldBook.sortOrder,
+        createdAt: oldBook.createdAt,
+        updatedAt: new Date().getTime()
+      }
+      await BookRepository.updateBook(updatedBook)
       HMRouterMgr.pop()
     } catch (err) {
       this.errorMessage = '保存失败，请稍后重试'
@@ -236,9 +242,8 @@ export struct addBookPage {
     if (!result.valid) {
       return result
     }
-    const pages: number = this.parseTotalPages()
     if (this.totalPagesText.trim().length > 0) {
-      result = ValidationUtils.validateTotalPages(pages)
+      result = ValidationUtils.validateTotalPages(this.parseTotalPages())
       if (!result.valid) {
         return result
       }
@@ -246,21 +251,20 @@ export struct addBookPage {
     return ValidationUtils.validateBookStatus(this.selectedStatus)
   }
 
+  onInputChange(label: string, text: string) {
+    if (label === '书名') this.bookName = text
+    else if (label === '作者') this.author = text
+    else if (label === 'ISBN') this.isbn = text
+    else if (label === '总页数') this.totalPagesText = text
+  }
+
   parseTotalPages(): number {
-    const text: string = this.totalPagesText.trim()
-    if (text.length === 0) {
-      return 0
-    }
-    return Number(text)
+    return this.totalPagesText.trim().length === 0 ? 0 : Number(this.totalPagesText)
   }
 
   getStatusText(status: BookStatus): string {
-    if (status === BookStatus.READING) {
-      return '在读'
-    }
-    if (status === BookStatus.FINISHED) {
-      return '已读完'
-    }
+    if (status === BookStatus.READING) return '在读'
+    if (status === BookStatus.FINISHED) return '已读完'
     return '想读'
   }
 }

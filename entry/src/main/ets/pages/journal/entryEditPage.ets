@@ -56,6 +56,7 @@ export struct entryEditPage {
         .width('100%')
         .padding({ left: BrewSpacing.pagePadding, right: BrewSpacing.pagePadding, top: 16, bottom: 28 })
       }
+      .align(Alignment.Top)
       .width('100%')
       .layoutWeight(1)
       .scrollBar(BarState.Off)

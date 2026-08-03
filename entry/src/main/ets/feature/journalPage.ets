@@ -58,6 +58,7 @@ export struct journalPage {
         .width('100%')
         .padding({ left: 16, right: 16, top: 20, bottom: 22 })
       }
+      .align(Alignment.Top)
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)

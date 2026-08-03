@@ -60,6 +60,7 @@ export struct bookShelfPage {
         .width('100%')
         .padding({ left: 16, right: 16, top: 20, bottom: 20 })
       }
+      .align(Alignment.Top)
       .width('100%')
       .height('100%')
       .scrollBar(BarState.Off)
@@ -188,6 +189,9 @@ export struct bookShelfPage {
     .backgroundColor('#FFFFFF')
     .borderRadius(14)
     .shadow({ radius: 8, color: '#0A000000', offsetX: 0, offsetY: 2 })
+    .onClick(() => {
+      this.openBookJournalPage(item.id)
+    })
   }
 
   @Builder
@@ -358,5 +362,18 @@ export struct bookShelfPage {
    */
   openAddBookPage() {
     HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_ADD_PAGE })
+  }
+
+  /**
+   * 打开某本书的日记本页面
+   *
+   * 多行说明：
+   * 1. 当前工程还没有稳定的 HMRouter 参数读取示例，因此先用 AppStorage 保存 selectedBookId 作为页面间参数兜底。
+   * 2. 书籍日记本页会根据 selectedBookId 查询 books 表和 reading_entries 表，展示该书完整阅读旅程。
+   * 3. 后续确认 HMRouter 参数 API 后，可以把这里替换为 push 参数传递，页面逻辑只需调整 bookId 来源。
+   */
+  openBookJournalPage(bookId: string) {
+    AppStorage.setOrCreate('selectedBookId', bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_JOURNAL_PAGE })
   }
 }
