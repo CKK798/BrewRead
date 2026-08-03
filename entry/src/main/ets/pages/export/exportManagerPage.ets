@@ -176,6 +176,9 @@ export struct exportManagerPage {
     .backgroundColor('#FFFFFF')
     .borderRadius(16)
     .shadow({ radius: 8, color: '#0A000000', offsetX: 0, offsetY: 2 })
+    .onClick(() => {
+      this.openPdfPreviewPage(item)
+    })
   }
 
   @Builder
@@ -322,6 +325,20 @@ export struct exportManagerPage {
       filePath: record.filePath,
       fileExists: FileStorageService.exists(record.filePath)
     }
+  }
+
+  /**
+   * 打开 PDF 文件详情页
+   *
+   * 多行说明：
+   * 1. 当前工程仍以 AppStorage 作为页面间参数兜底，导出管理页写入待查看文件名和路径。
+   * 2. PDF 详情页会重新检查文件是否存在，避免用户从列表进入后看到过期状态。
+   * 3. 后续接入系统 PDF 预览能力时，可继续沿用这两个参数定位沙箱文件。
+   */
+  openPdfPreviewPage(item: ExportHistoryItem) {
+    AppStorage.setOrCreate('previewPdfFileName', item.fileName)
+    AppStorage.setOrCreate('previewPdfFilePath', item.filePath)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_PREVIEW_PAGE })
   }
 
   prepareDeleteRecord(item: ExportHistoryItem) {
