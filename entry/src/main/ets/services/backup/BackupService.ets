@@ -6,6 +6,7 @@ import { AppSettingRepository } from '../repository/AppSettingRepository';
 import { BookRepository } from '../repository/BookRepository';
 import { ExportRecordRepository } from '../repository/ExportRecordRepository';
 import { ReadingEntryRepository } from '../repository/ReadingEntryRepository';
+import { FileStorageService, TextFileSaveResult } from '../storage/FileStorageService';
 import { DateUtils } from '../../utils/DateUtils';
 
 export interface BackupSnapshot {
@@ -22,6 +23,7 @@ export interface BackupResult {
   message: string
   fileName: string
   jsonText: string
+  filePath: string
 }
 
 /**
@@ -45,18 +47,22 @@ export class BackupService {
         appSettings: await BackupService.queryKnownSettings()
       }
       const jsonText: string = JSON.stringify(snapshot)
+      const fileName: string = '啡阅备份_' + DateUtils.formatDate(now) + '.json'
+      const saveResult: TextFileSaveResult = await FileStorageService.saveText('backups/' + fileName, jsonText)
       return {
-        success: true,
-        message: '备份快照已生成，文件写入将在后续版本接入',
-        fileName: '啡阅备份_' + DateUtils.formatDate(now) + '.json',
-        jsonText: jsonText
+        success: saveResult.success,
+        message: saveResult.success ? '备份文件已保存' : saveResult.message,
+        fileName: fileName,
+        jsonText: jsonText,
+        filePath: saveResult.filePath
       }
     } catch (err) {
       return {
         success: false,
         message: '备份生成失败，请稍后重试',
         fileName: '',
-        jsonText: ''
+        jsonText: '',
+        filePath: ''
       }
     }
   }

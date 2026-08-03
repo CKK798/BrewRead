@@ -1,0 +1,45 @@
+import { fileIo } from '@kit.CoreFileKit';
+
+export interface TextFileSaveResult {
+  success: boolean
+  message: string
+  filePath: string
+}
+
+/**
+ * 文件存储服务
+ *
+ * 多行说明：
+ * 1. 本服务封装文本文件写入能力，备份 JSON、导出文本和后续 PDF 元数据都可以复用。
+ * 2. 当前通过 AppStorage.appFilesDir 获取应用沙箱 files 目录，避免页面层直接依赖文件系统细节。
+ * 3. 写入失败时返回结构化错误结果，页面根据 message 展示提示，避免异常直接中断用户流程。
+ */
+export class FileStorageService {
+  static async saveText(relativePath: string, content: string): Promise<TextFileSaveResult> {
+    const baseDir: string = AppStorage.get<string>('appFilesDir') ?? ''
+    if (baseDir.length === 0) {
+      return { success: false, message: '文件目录未初始化，暂不能保存文件', filePath: '' }
+    }
+    const fullPath: string = baseDir + '/' + relativePath
+    try {
+      await FileStorageService.ensureParentDir(fullPath)
+      const file = fileIo.openSync(fullPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC)
+      fileIo.writeSync(file.fd, content)
+      fileIo.closeSync(file)
+      return { success: true, message: '文件已保存', filePath: fullPath }
+    } catch (err) {
+      return { success: false, message: '文件保存失败，请稍后重试', filePath: fullPath }
+    }
+  }
+
+  private static async ensureParentDir(fullPath: string): Promise<void> {
+    const splitIndex: number = fullPath.lastIndexOf('/')
+    if (splitIndex <= 0) {
+      return
+    }
+    const dirPath: string = fullPath.substring(0, splitIndex)
+    if (!fileIo.accessSync(dirPath)) {
+      fileIo.mkdirSync(dirPath, true)
+    }
+  }
+}

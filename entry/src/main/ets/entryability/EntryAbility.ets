@@ -17,6 +17,7 @@ export default class EntryAbility extends UIAbility {
     HMRouterMgr.init({
       context: this.context,
     })
+    AppStorage.setOrCreate('appFilesDir', this.context.filesDir)
 
     /**
      * 数据库启动初始化

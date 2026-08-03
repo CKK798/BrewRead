@@ -16,6 +16,7 @@ export struct backupPage {
   @Local backingUp: boolean = false
   @Local message: string = ''
   @Local fileName: string = ''
+  @Local filePath: string = ''
   @Local jsonPreview: string = ''
 
   build() {
@@ -101,9 +102,17 @@ export struct backupPage {
           .margin({ top: 14 })
       }
       if (this.fileName.length > 0) {
-        Text('建议文件名：' + this.fileName)
+        Text('文件名：' + this.fileName)
           .fontSize(12)
           .fontColor('#A8A39C')
+          .margin({ top: 8 })
+      }
+      if (this.filePath.length > 0) {
+        Text('保存路径：' + this.filePath)
+          .fontSize(12)
+          .fontColor('#A8A39C')
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
           .margin({ top: 8 })
       }
       if (this.jsonPreview.length > 0) {
@@ -167,10 +176,12 @@ export struct backupPage {
     this.backingUp = true
     this.message = ''
     this.fileName = ''
+    this.filePath = ''
     this.jsonPreview = ''
     const result: BackupResult = await BackupService.createBackupSnapshot()
     this.message = result.message
     this.fileName = result.fileName
+    this.filePath = result.filePath
     if (result.success) {
       this.jsonPreview = result.jsonText
     }
