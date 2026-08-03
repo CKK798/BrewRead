@@ -17,6 +17,11 @@ interface BookJournalItem {
   content: string
 }
 
+interface BookCoffeeSummary {
+  hasData: boolean
+  text: string
+}
+
 /**
  * 书籍日记本页面
  *
@@ -34,6 +39,10 @@ export struct bookJournalPage {
   @Local loadError: string = ''
   @Local totalPages: number = 0
   @Local coffeeCount: number = 0
+  @Local coffeeSummary: BookCoffeeSummary = {
+    hasData: false,
+    text: '写下几次配咖啡的阅读记录后，这里会生成这本书的咖啡回忆。'
+  }
   @Local showDeleteBookConfirm: boolean = false
   @Local showDeleteEntryConfirm: boolean = false
   @Local pendingDeleteEntryId: string = ''
@@ -151,9 +160,18 @@ export struct bookJournalPage {
     .width('100%')
     .height(44)
     .padding({ left: 14, right: 14 })
-    .margin({ top: 18, bottom: 20 })
+    .margin({ top: 18 })
     .backgroundColor('#FFFFFF')
     .borderRadius(14)
+    Text(this.coffeeSummary.text)
+      .fontSize(13)
+      .fontColor(this.coffeeSummary.hasData ? '#2C2825' : '#7D7872')
+      .lineHeight(20)
+      .width('100%')
+      .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+      .margin({ top: 10, bottom: 20 })
+      .backgroundColor('#FFFFFF')
+      .borderRadius(14)
   }
 
   @Builder
@@ -461,6 +479,7 @@ export struct bookJournalPage {
       this.entries = entryList.map((entry: ReadingEntryEntity) => this.toJournalItem(entry))
       this.totalPages = this.calculateTotalPages(entryList)
       this.coffeeCount = this.countCoffee(entryList)
+      this.coffeeSummary = this.buildCoffeeSummary(entryList)
     } catch (err) {
       this.loadError = '书籍日记本加载失败，请稍后重试'
     }
@@ -497,6 +516,34 @@ export struct bookJournalPage {
       }
     })
     return total
+  }
+
+  buildCoffeeSummary(entries: ReadingEntryEntity[]): BookCoffeeSummary {
+    const coffeeNames: string[] = []
+    entries.forEach((entry: ReadingEntryEntity) => {
+      if (entry.coffee !== undefined && entry.coffee.trim().length > 0 && coffeeNames.indexOf(entry.coffee.trim()) < 0) {
+        coffeeNames.push(entry.coffee.trim())
+      }
+    })
+    if (coffeeNames.length === 0) {
+      return {
+        hasData: false,
+        text: '这本书还没有留下咖啡记忆，下一次阅读时可以为它配上一杯。'
+      }
+    }
+    let topCoffee: string = coffeeNames[0]
+    let topCount: number = 0
+    coffeeNames.forEach((coffeeName: string) => {
+      const count: number = entries.filter((entry: ReadingEntryEntity) => entry.coffee !== undefined && entry.coffee.trim() === coffeeName).length
+      if (count > topCount) {
+        topCoffee = coffeeName
+        topCount = count
+      }
+    })
+    return {
+      hasData: true,
+      text: '这本书陪你走过 ' + entries.length + ' 个阅读时刻，配了 ' + this.countCoffee(entries) + ' 杯咖啡，其中“' + topCoffee + '”出现了 ' + topCount + ' 次。'
+    }
   }
 
   getPageText(entry: ReadingEntryEntity): string {
