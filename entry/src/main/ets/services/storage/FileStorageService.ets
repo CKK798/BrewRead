@@ -11,6 +11,11 @@ export interface FileDeleteResult {
   message: string
 }
 
+export interface FileCopyResult {
+  success: boolean
+  message: string
+}
+
 /**
  * 文件存储服务
  *
@@ -76,6 +81,22 @@ export class FileStorageService {
       return { success: true, message: '文件已删除' }
     } catch (err) {
       return { success: false, message: '文件删除失败，请稍后重试' }
+    }
+  }
+
+  static copyFile(sourcePath: string, targetPath: string): FileCopyResult {
+    if (!FileStorageService.exists(sourcePath)) {
+      return { success: false, message: '源文件不存在，请重新导出 PDF' }
+    }
+    if (targetPath.length === 0) {
+      return { success: false, message: '目标路径为空，无法保存文件' }
+    }
+    try {
+      FileStorageService.ensureParentDir(targetPath)
+      fileIo.copyFileSync(sourcePath, targetPath)
+      return { success: true, message: 'PDF 已保存到你选择的位置' }
+    } catch (err) {
+      return { success: false, message: 'PDF 保存到可见位置失败，请稍后重试' }
     }
   }
 

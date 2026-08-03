@@ -169,9 +169,22 @@ export struct bookJournalPage {
       .lineHeight(20)
       .width('100%')
       .padding({ left: 14, right: 14, top: 12, bottom: 12 })
-      .margin({ top: 10, bottom: 20 })
+      .margin({ top: 10 })
       .backgroundColor('#FFFFFF')
       .borderRadius(14)
+    Text('查看读完仪式')
+      .fontSize(14)
+      .fontWeight(FontWeight.Medium)
+      .fontColor('#FFFFFF')
+      .width('100%')
+      .height(42)
+      .textAlign(TextAlign.Center)
+      .backgroundColor('#C2865E')
+      .borderRadius(21)
+      .margin({ top: 10, bottom: 20 })
+      .onClick(() => {
+        this.openFinishCeremonyPage()
+      })
   }
 
   @Builder
@@ -621,6 +634,11 @@ export struct bookJournalPage {
   openEditBookPage() {
     AppStorage.setOrCreate('selectedBookId', this.bookId)
     HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_EDIT_PAGE })
+  }
+
+  openFinishCeremonyPage() {
+    AppStorage.setOrCreate('selectedBookId', this.bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.FINISH_CEREMONY_PAGE })
   }
 
   /**

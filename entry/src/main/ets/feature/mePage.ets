@@ -66,6 +66,7 @@ export struct mePage {
   @Local loading: boolean = false
   @Local loadError: string = ''
   private menus: MenuItem[] = [
+    { title: '我的金句', desc: '回看那些特别想留下的话', icon: '★' },
     { title: '导出管理', desc: '查看与分享已生成的 PDF', icon: '📄' },
     { title: '外观设置', desc: '浅色、深色或跟随系统', icon: '◐' },
     { title: '备份与恢复', desc: '本地数据导出与导入', icon: '↻' }
@@ -411,7 +412,9 @@ export struct mePage {
    * 3. 菜单跳转统一在这里收敛，避免后续新增设置项时散落多个 onClick 分支。
    */
   openMenuPage(item: MenuItem) {
-    if (item.title === '导出管理') {
+    if (item.title === '我的金句') {
+      HMRouterMgr.push({ pageUrl: PAGE_PATH.HIGHLIGHT_ENTRIES_PAGE })
+    } else if (item.title === '导出管理') {
       HMRouterMgr.push({ pageUrl: PAGE_PATH.EXPORT_MANAGER_PAGE })
     } else if (item.title === '外观设置') {
       HMRouterMgr.push({ pageUrl: PAGE_PATH.SETTINGS_PAGE })

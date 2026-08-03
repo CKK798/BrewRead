@@ -222,7 +222,12 @@ export struct editBookPage {
         updatedAt: new Date().getTime()
       }
       await BookRepository.updateBook(updatedBook)
-      HMRouterMgr.pop()
+      if (oldBook.status !== BookStatus.FINISHED && updatedBook.status === BookStatus.FINISHED) {
+        AppStorage.setOrCreate('selectedBookId', updatedBook.id)
+        HMRouterMgr.push({ pageUrl: PAGE_PATH.FINISH_CEREMONY_PAGE })
+      } else {
+        HMRouterMgr.pop()
+      }
     } catch (err) {
       this.errorMessage = '保存失败，请稍后重试'
       this.saving = false

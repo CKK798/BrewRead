@@ -44,6 +44,7 @@ export class DatabaseSchema {
     'coffee TEXT, ' +
     'content TEXT NOT NULL, ' +
     'photo_path TEXT, ' +
+    'is_highlight INTEGER NOT NULL DEFAULT 0, ' +
     'created_at INTEGER NOT NULL, ' +
     'updated_at INTEGER NOT NULL, ' +
     'FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE)'
@@ -51,6 +52,8 @@ export class DatabaseSchema {
   static readonly createEntriesBookIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_book_id ON reading_entries(book_id)'
   static readonly createEntriesDateIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_date ON reading_entries(date DESC)'
   static readonly createEntriesBookDateIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_book_date ON reading_entries(book_id, date DESC)'
+  static readonly createEntriesHighlightIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_highlight ON reading_entries(is_highlight, date DESC)'
+  static readonly alterEntriesHighlightSql: string = 'ALTER TABLE reading_entries ADD COLUMN is_highlight INTEGER NOT NULL DEFAULT 0'
 
   static readonly createExportRecordsTableSql: string = 'CREATE TABLE IF NOT EXISTS export_records (' +
     'id TEXT PRIMARY KEY, ' +
@@ -79,6 +82,7 @@ export class DatabaseSchema {
     DatabaseSchema.createEntriesBookIndexSql,
     DatabaseSchema.createEntriesDateIndexSql,
     DatabaseSchema.createEntriesBookDateIndexSql,
+    DatabaseSchema.createEntriesHighlightIndexSql,
     DatabaseSchema.createExportRecordsTableSql,
     DatabaseSchema.createExportRecordsBookIndexSql,
     DatabaseSchema.createExportRecordsCreatedIndexSql,

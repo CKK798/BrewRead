@@ -26,6 +26,7 @@ export struct entryEditPage {
   @Local pageToText: string = ''
   @Local coffee: string = ''
   @Local content: string = ''
+  @Local isHighlight: boolean = false
   @Local errorMessage: string = ''
   @Local loadingBooks: boolean = false
   @Local saving: boolean = false
@@ -52,6 +53,7 @@ export struct entryEditPage {
           this.PageInputs()
           this.CoffeeInput()
           this.ContentInput()
+          this.HighlightSwitch()
           if (this.errorMessage.length > 0) {
             Text(this.errorMessage)
               .fontSize(BrewFontSize.caption)
@@ -258,6 +260,38 @@ export struct entryEditPage {
   }
 
   @Builder
+  HighlightSwitch() {
+    Row() {
+      Column() {
+        Text('标记为金句')
+          .fontSize(BrewFontSize.secondary)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(BrewTheme.light.textPrimary)
+        Text('以后可以集中回看这一条特别想留下的话')
+          .fontSize(BrewFontSize.caption)
+          .fontColor(BrewTheme.light.textSecondary)
+          .margin({ top: 4 })
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      Text(this.isHighlight ? '★' : '☆')
+        .fontSize(26)
+        .fontColor(this.isHighlight ? BrewTheme.light.primary : BrewTheme.light.textTertiary)
+        .width(44)
+        .height(44)
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor(BrewTheme.light.cardBg)
+    .borderRadius(BrewRadius.card)
+    .margin({ bottom: 12 })
+    .onClick(() => {
+      this.isHighlight = !this.isHighlight
+    })
+  }
+
+  @Builder
   SectionTitle(title: string, required: boolean) {
     Row() {
       Text(title)
@@ -363,6 +397,7 @@ export struct entryEditPage {
     this.pageToText = entry.pageTo === undefined ? '' : entry.pageTo.toString()
     this.coffee = entry.coffee === undefined ? '' : entry.coffee
     this.content = entry.content
+    this.isHighlight = entry.isHighlight === true
   }
 
   buildSavingEntry(now: number): ReadingEntryEntity {
@@ -377,6 +412,7 @@ export struct entryEditPage {
         coffee: this.coffee.trim().length > 0 ? this.coffee.trim() : undefined,
         content: this.content.trim(),
         photoPath: this.originalEntry.photoPath,
+        isHighlight: this.isHighlight,
         createdAt: this.originalEntry.createdAt,
         updatedAt: now
       }
@@ -390,6 +426,7 @@ export struct entryEditPage {
       mood: this.selectedMood,
       coffee: this.coffee.trim().length > 0 ? this.coffee.trim() : undefined,
       content: this.content.trim(),
+      isHighlight: this.isHighlight,
       createdAt: now,
       updatedAt: now
     }

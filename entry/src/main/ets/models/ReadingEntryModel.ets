@@ -24,6 +24,7 @@ export interface ReadingEntryEntity {
   coffee?: string
   content: string
   photoPath?: string
+  isHighlight?: boolean
   createdAt: number
   updatedAt: number
 }

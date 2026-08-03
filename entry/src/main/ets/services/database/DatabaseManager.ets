@@ -44,12 +44,21 @@ export class DatabaseManager {
   private static async openStore(context: Context): Promise<relationalStore.RdbStore> {
     const store: relationalStore.RdbStore = await relationalStore.getRdbStore(context, STORE_CONFIG)
     await DatabaseManager.executeSchemaSql(store)
+    await DatabaseManager.executeMigrationSql(store)
     return store
   }
 
   private static async executeSchemaSql(store: relationalStore.RdbStore): Promise<void> {
     for (let index = 0; index < DatabaseSchema.createTableSqlList.length; index++) {
       await store.executeSql(DatabaseSchema.createTableSqlList[index])
+    }
+  }
+
+  private static async executeMigrationSql(store: relationalStore.RdbStore): Promise<void> {
+    try {
+      await store.executeSql(DatabaseSchema.alterEntriesHighlightSql)
+    } catch (err) {
+      await Promise.resolve()
     }
   }
 }

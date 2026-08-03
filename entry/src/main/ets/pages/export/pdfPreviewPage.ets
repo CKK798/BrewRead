@@ -1,6 +1,8 @@
+import { common, Want } from '@kit.AbilityKit';
+import { picker } from '@kit.CoreFileKit';
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { PAGE_PATH } from '../../pagePath';
-import { FileStorageService } from '../../services/storage/FileStorageService';
+import { FileCopyResult, FileStorageService } from '../../services/storage/FileStorageService';
 import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../../theme/ThemeTokens';
 
@@ -18,6 +20,7 @@ export struct pdfPreviewPage {
   @Local fileName: string = ''
   @Local filePath: string = ''
   @Local fileExists: boolean = false
+  @Local openMessage: string = ''
 
   aboutToAppear() {
     this.fileName = AppStorage.get<string>('previewPdfFileName') ?? ''
@@ -42,7 +45,7 @@ export struct pdfPreviewPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('this.getPalette().pageBg')
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -51,7 +54,7 @@ export struct pdfPreviewPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('this.getPalette().textPrimary')
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -62,10 +65,10 @@ export struct pdfPreviewPage {
         Text('PDF 文件详情')
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor('this.getPalette().textPrimary')
         Text('查看导出文件状态与保存路径')
           .fontSize(13)
-          .fontColor('this.getPalette().textSecondary')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -80,6 +83,47 @@ export struct pdfPreviewPage {
     return ThemePreferenceService.getCurrentPalette()
   }
 
+  async openPdfFile() {
+    if (!this.fileExists) {
+      this.openMessage = '文件不存在，请返回书籍日记本重新导出。'
+      return
+    }
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+      const want: Want = {
+        action: 'ohos.want.action.viewData',
+        uri: 'file://' + this.filePath,
+        type: 'application/pdf'
+      }
+      await context.startAbility(want)
+      this.openMessage = '已尝试调用系统 PDF 查看器打开。'
+    } catch (err) {
+      this.openMessage = '直接打开失败：应用沙箱路径通常不能被外部 PDF 查看器访问，请优先使用“保存到可见位置”。'
+    }
+  }
+
+  async savePdfToVisibleLocation() {
+    if (!this.fileExists) {
+      this.openMessage = '文件不存在，请返回书籍日记本重新导出。'
+      return
+    }
+    try {
+      const documentSaveOptions = new picker.DocumentSaveOptions()
+      documentSaveOptions.newFileNames = [this.fileName.length === 0 ? '啡阅导出.pdf' : this.fileName]
+      const documentViewPicker = new picker.DocumentViewPicker()
+      const uriList: string[] = await documentViewPicker.save(documentSaveOptions)
+      if (uriList.length === 0) {
+        this.openMessage = '没有选择保存位置。'
+        return
+      }
+      const targetUri: string = uriList[0]
+      const copyResult: FileCopyResult = FileStorageService.copyFile(this.filePath, targetUri)
+      this.openMessage = copyResult.message
+    } catch (err) {
+      this.openMessage = '保存失败：当前系统文件保存器不可用或未授权，请稍后重试。'
+    }
+  }
+
   @Builder
   FileInfoCard() {
     Column() {
@@ -87,17 +131,17 @@ export struct pdfPreviewPage {
         Text('PDF')
           .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor('this.getPalette().cardBg')
+          .fontColor(this.getPalette().cardBg)
           .width(46)
           .height(46)
           .textAlign(TextAlign.Center)
-          .backgroundColor('this.getPalette().primary')
+          .backgroundColor(this.getPalette().primary)
           .borderRadius(23)
         Column() {
           Text(this.fileName.length === 0 ? '未获取到文件名' : this.fileName)
             .fontSize(17)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#2C2825')
+            .fontColor('this.getPalette().textPrimary')
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
           Text(this.fileExists ? '文件可用' : '文件缺失')
@@ -117,14 +161,14 @@ export struct pdfPreviewPage {
         .margin({ top: 18 })
       Text(this.filePath.length === 0 ? '未获取到文件路径' : this.filePath)
         .fontSize(12)
-        .fontColor('#7D7872')
+        .fontColor(this.getPalette().textSecondary)
         .lineHeight(18)
         .margin({ top: 8 })
     }
     .width('100%')
     .padding(18)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.getPalette().cardBg)
     .borderRadius(16)
   }
 
@@ -137,20 +181,44 @@ export struct pdfPreviewPage {
         .fontColor('#2C2825')
       Text('当前已生成并保存 PDF 文件。模拟器环境暂不验证系统 PDF 预览，后续可在这里接入 PDF 组件或系统文件打开能力。')
         .fontSize(13)
-        .fontColor('#7D7872')
+        .fontColor('this.getPalette().textSecondary')
         .lineHeight(21)
         .textAlign(TextAlign.Center)
         .margin({ top: 10 })
-      Text(this.fileExists ? '请在真机或文件管理中验证 PDF 打开效果' : '文件不存在，请返回重新导出')
-        .fontSize(13)
-        .fontColor(this.fileExists ? '#C2865E' : '#B65A4B')
+      Text(this.fileExists ? '保存到可见位置' : '文件不存在，请返回重新导出')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.fileExists ? this.getPalette().cardBg : '#B65A4B')
+        .width('100%')
+        .height(42)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.fileExists ? this.getPalette().primary : this.getPalette().inputBg)
+        .borderRadius(21)
         .margin({ top: 16 })
+        .onClick(() => {
+          this.savePdfToVisibleLocation()
+        })
+      Text(this.fileExists ? '尝试直接打开 PDF' : '')
+        .fontSize(13)
+        .fontColor(this.getPalette().primary)
+        .margin({ top: 12 })
+        .onClick(() => {
+          this.openPdfFile()
+        })
+      if (this.openMessage.length > 0) {
+        Text(this.openMessage)
+          .fontSize(12)
+          .fontColor(this.getPalette().textSecondary)
+          .lineHeight(18)
+          .textAlign(TextAlign.Center)
+          .margin({ top: 12 })
+      }
     }
     .width('100%')
     .padding({ left: 22, right: 22, top: 34, bottom: 34 })
     .alignItems(HorizontalAlign.Center)
     .margin({ top: 16 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(16)
   }
 }

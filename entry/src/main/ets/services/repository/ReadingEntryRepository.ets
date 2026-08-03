@@ -53,6 +53,14 @@ export class ReadingEntryRepository {
     return await ReadingEntryRepository.queryEntries(predicates)
   }
 
+  static async queryHighlightEntries(): Promise<ReadingEntryEntity[]> {
+    const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.readingEntries)
+    predicates.equalTo('is_highlight', 1)
+    predicates.orderByDesc('date')
+    predicates.orderByDesc('created_at')
+    return await ReadingEntryRepository.queryEntries(predicates)
+  }
+
   static async queryEntryById(entryId: string): Promise<ReadingEntryEntity | undefined> {
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.readingEntries)
     predicates.equalTo('id', entryId)
@@ -104,6 +112,7 @@ export class ReadingEntryRepository {
       'coffee': entry.coffee === undefined ? null : entry.coffee,
       'content': entry.content,
       'photo_path': entry.photoPath === undefined ? null : entry.photoPath,
+      'is_highlight': entry.isHighlight === true ? 1 : 0,
       'created_at': entry.createdAt,
       'updated_at': entry.updatedAt
     }
@@ -122,6 +131,7 @@ export class ReadingEntryRepository {
       coffee: resultSet.getString(resultSet.getColumnIndex('coffee')),
       content: resultSet.getString(resultSet.getColumnIndex('content')),
       photoPath: resultSet.getString(resultSet.getColumnIndex('photo_path')),
+      isHighlight: resultSet.getLong(resultSet.getColumnIndex('is_highlight')) === 1,
       createdAt: resultSet.getLong(resultSet.getColumnIndex('created_at')),
       updatedAt: resultSet.getLong(resultSet.getColumnIndex('updated_at'))
     }

@@ -36,6 +36,10 @@ export class PAGE_PATH {
   static readonly ENTRY_EDIT_PAGE: string = "entryEditPage"
   /**某本书的日记本时间线页面*/
   static readonly BOOK_JOURNAL_PAGE: string = "bookJournalPage"
+  /**读完仪式页面*/
+  static readonly FINISH_CEREMONY_PAGE: string = "finishCeremonyPage"
+  /**我的金句页面*/
+  static readonly HIGHLIGHT_ENTRIES_PAGE: string = "highlightEntriesPage"
   /**单日记录详情页面*/
   static readonly DAY_DETAIL_PAGE: string = "dayDetailPage"
   /**导出管理页面*/
