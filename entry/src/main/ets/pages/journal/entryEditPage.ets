@@ -29,10 +29,16 @@ export struct entryEditPage {
   @Local errorMessage: string = ''
   @Local loadingBooks: boolean = false
   @Local saving: boolean = false
+  @Local editingEntryId: string = ''
+  @Local originalEntry?: ReadingEntryEntity = undefined
   private moods: ReadingMood[] = [ReadingMood.HAPPY, ReadingMood.CALM, ReadingMood.NEUTRAL, ReadingMood.PENSIVE, ReadingMood.SAD]
 
   async aboutToAppear() {
+    this.editingEntryId = AppStorage.get<string>('selectedEntryId') ?? ''
     await this.loadSelectableBooks()
+    if (this.editingEntryId.length > 0) {
+      await this.loadEditingEntry()
+    }
   }
 
   build() {
@@ -80,7 +86,7 @@ export struct entryEditPage {
           HMRouterMgr.pop()
         })
       Column() {
-        Text('写阅读记录')
+        Text(this.isEditMode() ? '编辑阅读记录' : '写阅读记录')
           .fontSize(BrewFontSize.title)
           .fontWeight(FontWeight.Bold)
           .fontColor(BrewTheme.light.textPrimary)
@@ -268,7 +274,7 @@ export struct entryEditPage {
 
   @Builder
   SaveButton() {
-    Text(this.saving ? '保存中...' : '保存记录')
+    Text(this.saving ? '保存中...' : (this.isEditMode() ? '保存修改' : '保存记录'))
       .fontSize(BrewFontSize.body)
       .fontWeight(FontWeight.Medium)
       .fontColor('#FFFFFF')
@@ -319,7 +325,62 @@ export struct entryEditPage {
     this.saving = true
     this.errorMessage = ''
     const now: number = new Date().getTime()
-    const entry: ReadingEntryEntity = {
+    const entry: ReadingEntryEntity = this.buildSavingEntry(now)
+
+    try {
+      if (this.isEditMode()) {
+        await ReadingEntryRepository.updateEntry(entry)
+      } else {
+        await ReadingEntryRepository.insertEntry(entry)
+      }
+      AppStorage.setOrCreate('selectedEntryId', '')
+      HMRouterMgr.pop()
+    } catch (err) {
+      this.errorMessage = '保存失败，请稍后重试'
+      this.saving = false
+    }
+  }
+
+  /**
+   * 加载待编辑的阅读记录
+   *
+   * 多行说明：
+   * 1. 编辑模式通过 AppStorage.selectedEntryId 获取记录 id，再从 Repository 读取完整实体。
+   * 2. 原始记录保存在 originalEntry 中，保存修改时继续复用原 id、createdAt 和 date，避免编辑后时间线顺序突变。
+   * 3. 如果记录不存在，会展示明确错误，避免用户在空表单里误保存成一条新记录。
+   */
+  async loadEditingEntry() {
+    const entry: ReadingEntryEntity | undefined = await ReadingEntryRepository.queryEntryById(this.editingEntryId)
+    if (entry === undefined) {
+      this.errorMessage = '要编辑的记录不存在'
+      return
+    }
+    this.originalEntry = entry
+    this.selectedBookId = entry.bookId
+    this.selectedMood = entry.mood
+    this.pageFromText = entry.pageFrom === undefined ? '' : entry.pageFrom.toString()
+    this.pageToText = entry.pageTo === undefined ? '' : entry.pageTo.toString()
+    this.coffee = entry.coffee === undefined ? '' : entry.coffee
+    this.content = entry.content
+  }
+
+  buildSavingEntry(now: number): ReadingEntryEntity {
+    if (this.isEditMode() && this.originalEntry !== undefined) {
+      return {
+        id: this.originalEntry.id,
+        bookId: this.selectedBookId,
+        date: this.originalEntry.date,
+        pageFrom: this.parsePage(this.pageFromText),
+        pageTo: this.parsePage(this.pageToText),
+        mood: this.selectedMood,
+        coffee: this.coffee.trim().length > 0 ? this.coffee.trim() : undefined,
+        content: this.content.trim(),
+        photoPath: this.originalEntry.photoPath,
+        createdAt: this.originalEntry.createdAt,
+        updatedAt: now
+      }
+    }
+    return {
       id: IdUtils.createId('entry'),
       bookId: this.selectedBookId,
       date: now,
@@ -331,14 +392,10 @@ export struct entryEditPage {
       createdAt: now,
       updatedAt: now
     }
+  }
 
-    try {
-      await ReadingEntryRepository.insertEntry(entry)
-      HMRouterMgr.pop()
-    } catch (err) {
-      this.errorMessage = '保存失败，请稍后重试'
-      this.saving = false
-    }
+  isEditMode(): boolean {
+    return this.editingEntryId.length > 0
   }
 
   validateForm(): ValidationResult {

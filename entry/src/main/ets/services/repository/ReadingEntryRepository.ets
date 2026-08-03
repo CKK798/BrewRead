@@ -53,6 +53,16 @@ export class ReadingEntryRepository {
     return await ReadingEntryRepository.queryEntries(predicates)
   }
 
+  static async queryEntryById(entryId: string): Promise<ReadingEntryEntity | undefined> {
+    const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.readingEntries)
+    predicates.equalTo('id', entryId)
+    const entries: ReadingEntryEntity[] = await ReadingEntryRepository.queryEntries(predicates)
+    if (entries.length === 0) {
+      return undefined
+    }
+    return entries[0]
+  }
+
   static async getMaxPageToByBookId(bookId: string): Promise<number> {
     const entries: ReadingEntryEntity[] = await ReadingEntryRepository.queryEntriesByBookId(bookId)
     let maxPage: number = 0
