@@ -1,4 +1,4 @@
-import { HMRouter } from '@hadss/hmrouter';
+import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { PAGE_PATH } from '../pagePath';
 
 interface BookShelfItem {
@@ -92,6 +92,9 @@ export struct bookShelfPage {
         .backgroundColor('#C2865E')
         .borderRadius(22)
         .shadow({ radius: 8, color: '#1AC2865E', offsetX: 0, offsetY: 4 })
+        .onClick(() => {
+          this.openAddBookPage()
+        })
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -199,5 +202,20 @@ export struct bookShelfPage {
     .backgroundColor('#66FFFFFF')
     .borderRadius(14)
     .border({ width: 1, color: '#4DC2865E', style: BorderStyle.Dashed })
+    .onClick(() => {
+      this.openAddBookPage()
+    })
+  }
+
+  /**
+   * 打开添加书籍页面
+   *
+   * 多行说明：
+   * 1. 书架页保留底部 Tab 框架，只把添加新书作为二级页面压入 HMRouter 导航栈。
+   * 2. 添加页保存成功后会 pop 返回书架页，后续接入真实数据刷新时可在 aboutToAppear 重新查询列表。
+   * 3. 顶部加号和底部虚线卡片复用同一个方法，避免两个入口的跳转逻辑不一致。
+   */
+  openAddBookPage() {
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_ADD_PAGE })
   }
 }
