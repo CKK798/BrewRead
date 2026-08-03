@@ -6,6 +6,11 @@ export interface TextFileSaveResult {
   filePath: string
 }
 
+export interface FileDeleteResult {
+  success: boolean
+  message: string
+}
+
 /**
  * 文件存储服务
  *
@@ -29,6 +34,32 @@ export class FileStorageService {
       return { success: true, message: '文件已保存', filePath: fullPath }
     } catch (err) {
       return { success: false, message: '文件保存失败，请稍后重试', filePath: fullPath }
+    }
+  }
+
+  static exists(filePath: string): boolean {
+    if (filePath.length === 0) {
+      return false
+    }
+    try {
+      return fileIo.accessSync(filePath)
+    } catch (err) {
+      return false
+    }
+  }
+
+  static deleteFile(filePath: string): FileDeleteResult {
+    if (filePath.length === 0) {
+      return { success: true, message: '文件路径为空，仅删除记录' }
+    }
+    if (!FileStorageService.exists(filePath)) {
+      return { success: true, message: '文件不存在，仅删除记录' }
+    }
+    try {
+      fileIo.unlinkSync(filePath)
+      return { success: true, message: '文件已删除' }
+    } catch (err) {
+      return { success: false, message: '文件删除失败，请稍后重试' }
     }
   }
 

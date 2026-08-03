@@ -4,6 +4,7 @@ import { ExportRecordEntity } from '../../models/ExportRecordModel';
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ExportRecordRepository } from '../../services/repository/ExportRecordRepository';
+import { FileDeleteResult, FileStorageService } from '../../services/storage/FileStorageService';
 import { DateUtils } from '../../utils/DateUtils';
 
 interface ExportHistoryItem {
@@ -13,6 +14,7 @@ interface ExportHistoryItem {
   paperSize: string
   createdAtText: string
   filePath: string
+  fileExists: boolean
 }
 
 /**
@@ -140,12 +142,20 @@ export struct exportManagerPage {
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .margin({ top: 12 })
       Row() {
+        Text(item.fileExists ? '文件可用' : '文件缺失')
+          .fontSize(12)
+          .fontColor(item.fileExists ? '#8EA590' : '#B65A4B')
+          .padding({ left: 8, right: 8 })
+          .height(24)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(item.fileExists ? '#1A8EA590' : '#1AB65A4B')
+          .borderRadius(12)
         Blank()
         Text(this.deletingId === item.id ? '删除中...' : '删除记录')
           .fontSize(12)
           .fontColor('#B65A4B')
           .onClick(() => {
-            this.deleteRecord(item.id)
+            this.deleteRecord(item)
           })
       }
       .width('100%')
@@ -247,17 +257,32 @@ export struct exportManagerPage {
       bookName: book === undefined ? '已删除书籍' : book.name,
       paperSize: record.paperSize,
       createdAtText: DateUtils.formatDate(record.createdAt),
-      filePath: record.filePath
+      filePath: record.filePath,
+      fileExists: FileStorageService.exists(record.filePath)
     }
   }
 
-  async deleteRecord(recordId: string) {
+  /**
+   * 删除导出记录和真实文件
+   *
+   * 多行说明：
+   * 1. 删除导出记录前先尝试删除真实文件，避免数据库历史删除后文件残留在沙箱中占用空间。
+   * 2. 如果文件本来不存在，FileStorageService.deleteFile 会视为成功，并继续删除数据库历史。
+   * 3. 如果真实文件删除失败，则停止删除数据库记录，保留用户可重试的历史入口。
+   */
+  async deleteRecord(item: ExportHistoryItem) {
     if (this.deletingId.length > 0) {
       return
     }
-    this.deletingId = recordId
+    this.deletingId = item.id
     try {
-      await ExportRecordRepository.deleteRecord(recordId)
+      const deleteResult: FileDeleteResult = FileStorageService.deleteFile(item.filePath)
+      if (!deleteResult.success) {
+        this.loadError = deleteResult.message
+        this.deletingId = ''
+        return
+      }
+      await ExportRecordRepository.deleteRecord(item.id)
       await this.loadExportRecords()
     } catch (err) {
       this.loadError = '导出记录删除失败，请稍后重试'
