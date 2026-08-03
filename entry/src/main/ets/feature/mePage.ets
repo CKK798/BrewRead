@@ -23,6 +23,14 @@ interface MenuItem {
   icon: string
 }
 
+interface CoffeeInsight {
+  hasData: boolean
+  coffeeName: string
+  coffeeCount: number
+  moodName: string
+  summary: string
+}
+
 /**
  * 我的页面
  *
@@ -39,6 +47,13 @@ export struct mePage {
   @Local entryCount: number = 0
   @Local moods: MoodStatItem[] = []
   @Local trends: TrendStatItem[] = []
+  @Local coffeeInsight: CoffeeInsight = {
+    hasData: false,
+    coffeeName: '',
+    coffeeCount: 0,
+    moodName: '',
+    summary: '记录几次配咖啡的阅读时刻后，这里会生成你的咖伴画像。'
+  }
   @Local loading: boolean = false
   @Local loadError: string = ''
   private menus: MenuItem[] = [
@@ -63,6 +78,7 @@ export struct mePage {
           } else {
             this.OverviewCards()
             this.MoodCard()
+            this.CoffeeInsightCard()
             this.TrendCard()
             this.MenuList()
           }
@@ -231,6 +247,51 @@ export struct mePage {
   }
 
   @Builder
+  CoffeeInsightCard() {
+    Column() {
+      Row() {
+        Text('咖伴')
+          .fontSize(20)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#2C2825')
+        Blank()
+        Text('☕')
+          .fontSize(20)
+      }
+      .width('100%')
+      if (this.coffeeInsight.hasData) {
+        Text(this.coffeeInsight.coffeeName)
+          .fontSize(28)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#C2865E')
+          .margin({ top: 14 })
+        Text('出现 ' + this.coffeeInsight.coffeeCount + ' 次 · 常和“' + this.coffeeInsight.moodName + '”一起出现')
+          .fontSize(13)
+          .fontColor('#7D7872')
+          .margin({ top: 6 })
+        Text(this.coffeeInsight.summary)
+          .fontSize(14)
+          .fontColor('#2C2825')
+          .lineHeight(21)
+          .margin({ top: 14 })
+      } else {
+        Text(this.coffeeInsight.summary)
+          .fontSize(13)
+          .fontColor('#7D7872')
+          .lineHeight(20)
+          .margin({ top: 14 })
+      }
+    }
+    .width('100%')
+    .padding(18)
+    .alignItems(HorizontalAlign.Start)
+    .margin({ top: 16 })
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+    .shadow({ radius: 8, color: '#0A000000', offsetX: 0, offsetY: 2 })
+  }
+
+  @Builder
   TrendCard() {
     Column() {
       Row() {
@@ -361,6 +422,7 @@ export struct mePage {
       this.finishedBookCount = finishedBooks.length
       this.entryCount = entries.length
       this.moods = this.buildMoodStats(entries)
+      this.coffeeInsight = this.buildCoffeeInsight(entries)
       this.trends = this.buildTrendStats(entries)
     } catch (err) {
       this.loadError = '阅读统计加载失败，请稍后重试'
@@ -382,6 +444,55 @@ export struct mePage {
       stats.push(item)
     }
     return stats
+  }
+
+  buildCoffeeInsight(entries: ReadingEntryEntity[]): CoffeeInsight {
+    const coffeeNames: string[] = []
+    entries.forEach((entry: ReadingEntryEntity) => {
+      if (entry.coffee !== undefined && entry.coffee.trim().length > 0 && coffeeNames.indexOf(entry.coffee.trim()) < 0) {
+        coffeeNames.push(entry.coffee.trim())
+      }
+    })
+    if (coffeeNames.length === 0) {
+      return {
+        hasData: false,
+        coffeeName: '',
+        coffeeCount: 0,
+        moodName: '',
+        summary: '记录几次配咖啡的阅读时刻后，这里会生成你的咖伴画像。'
+      }
+    }
+
+    let topCoffee: string = coffeeNames[0]
+    let topCount: number = 0
+    coffeeNames.forEach((coffeeName: string) => {
+      const count: number = entries.filter((entry: ReadingEntryEntity) => entry.coffee !== undefined && entry.coffee.trim() === coffeeName).length
+      if (count > topCount) {
+        topCoffee = coffeeName
+        topCount = count
+      }
+    })
+
+    const moodList: ReadingMood[] = [ReadingMood.HAPPY, ReadingMood.CALM, ReadingMood.NEUTRAL, ReadingMood.PENSIVE, ReadingMood.SAD]
+    let topMood: ReadingMood = ReadingMood.CALM
+    let topMoodCount: number = 0
+    moodList.forEach((mood: ReadingMood) => {
+      const count: number = entries.filter((entry: ReadingEntryEntity) => {
+        return entry.coffee !== undefined && entry.coffee.trim() === topCoffee && entry.mood === mood
+      }).length
+      if (count > topMoodCount) {
+        topMood = mood
+        topMoodCount = count
+      }
+    })
+    const moodName: string = getMoodText(topMood)
+    return {
+      hasData: true,
+      coffeeName: topCoffee,
+      coffeeCount: topCount,
+      moodName: moodName,
+      summary: topCoffee + '陪你出现了 ' + topCount + ' 次，最常和“' + moodName + '”一起留在阅读时刻里。'
+    }
   }
 
   buildTrendStats(entries: ReadingEntryEntity[]): TrendStatItem[] {

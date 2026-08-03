@@ -1,6 +1,8 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { PAGE_PATH } from '../../pagePath';
 import { FileStorageService } from '../../services/storage/FileStorageService';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 
 /**
  * PDF 文件详情 / 预览占位页面
@@ -40,7 +42,7 @@ export struct pdfPreviewPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor('this.getPalette().pageBg')
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -49,7 +51,7 @@ export struct pdfPreviewPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor('this.getPalette().textPrimary')
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -63,7 +65,7 @@ export struct pdfPreviewPage {
           .fontColor('#2C2825')
         Text('查看导出文件状态与保存路径')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor('this.getPalette().textSecondary')
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -74,6 +76,10 @@ export struct pdfPreviewPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   @Builder
   FileInfoCard() {
     Column() {
@@ -81,11 +87,11 @@ export struct pdfPreviewPage {
         Text('PDF')
           .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
+          .fontColor('this.getPalette().cardBg')
           .width(46)
           .height(46)
           .textAlign(TextAlign.Center)
-          .backgroundColor('#C2865E')
+          .backgroundColor('this.getPalette().primary')
           .borderRadius(23)
         Column() {
           Text(this.fileName.length === 0 ? '未获取到文件名' : this.fileName)

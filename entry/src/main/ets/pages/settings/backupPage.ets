@@ -1,6 +1,8 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { PAGE_PATH } from '../../pagePath';
 import { BackupResult, BackupService } from '../../services/backup/BackupService';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 
 /**
  * 备份与恢复页面
@@ -36,7 +38,7 @@ export struct backupPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor('this.getPalette().pageBg')
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -45,7 +47,7 @@ export struct backupPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor('this.getPalette().textPrimary')
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -59,7 +61,7 @@ export struct backupPage {
           .fontColor('#2C2825')
         Text('保护你的书籍、记录和设置')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor('this.getPalette().textSecondary')
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -85,11 +87,11 @@ export struct backupPage {
       Text(this.backingUp ? '正在生成...' : '生成备份快照')
         .fontSize(15)
         .fontWeight(FontWeight.Medium)
-        .fontColor('#FFFFFF')
+        .fontColor('this.getPalette().cardBg')
         .width('100%')
         .height(44)
         .textAlign(TextAlign.Center)
-        .backgroundColor(this.backingUp ? '#80C2865E' : '#C2865E')
+        .backgroundColor(this.backingUp ? '#80C2865E' : 'this.getPalette().primary')
         .borderRadius(22)
         .margin({ top: 18 })
         .onClick(() => {
@@ -104,7 +106,7 @@ export struct backupPage {
       if (this.fileName.length > 0) {
         Text('文件名：' + this.fileName)
           .fontSize(12)
-          .fontColor('#A8A39C')
+          .fontColor('this.getPalette().textTertiary')
           .margin({ top: 8 })
       }
       if (this.filePath.length > 0) {

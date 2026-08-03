@@ -81,7 +81,7 @@ export struct exportManagerPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('this.getPalette().textPrimary')
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -95,7 +95,7 @@ export struct exportManagerPage {
           .fontColor('#2C2825')
         Text('查看已经生成的书籍日记本导出记录')
           .fontSize(13)
-          .fontColor('this.getPalette().textSecondary')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -104,6 +104,10 @@ export struct exportManagerPage {
     .width('100%')
     .padding({ left: 6, right: 16, top: 8, bottom: 8 })
     .alignItems(VerticalAlign.Center)
+  }
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   @Builder
@@ -123,11 +127,11 @@ export struct exportManagerPage {
         Text('PDF')
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
-          .fontColor('this.getPalette().cardBg')
+          .fontColor(this.getPalette().cardBg)
           .width(42)
           .height(42)
           .textAlign(TextAlign.Center)
-          .backgroundColor('this.getPalette().primary')
+          .backgroundColor(this.getPalette().primary)
           .borderRadius(21)
         Column() {
           Text(item.fileName)
@@ -148,7 +152,7 @@ export struct exportManagerPage {
       .width('100%')
       Text(item.filePath)
         .fontSize(12)
-        .fontColor('this.getPalette().textTertiary')
+        .fontColor(this.getPalette().textTertiary)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .margin({ top: 12 })
