@@ -21,19 +21,35 @@ export interface FileDeleteResult {
  */
 export class FileStorageService {
   static async saveText(relativePath: string, content: string): Promise<TextFileSaveResult> {
-    const baseDir: string = AppStorage.get<string>('appFilesDir') ?? ''
-    if (baseDir.length === 0) {
+    const fullPath: string = FileStorageService.buildFullPath(relativePath)
+    if (fullPath.length === 0) {
       return { success: false, message: '文件目录未初始化，暂不能保存文件', filePath: '' }
     }
-    const fullPath: string = baseDir + '/' + relativePath
     try {
-      await FileStorageService.ensureParentDir(fullPath)
+      FileStorageService.ensureParentDir(fullPath)
       const file = fileIo.openSync(fullPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC)
       fileIo.writeSync(file.fd, content)
       fileIo.closeSync(file)
       return { success: true, message: '文件已保存', filePath: fullPath }
     } catch (err) {
       return { success: false, message: '文件保存失败，请稍后重试', filePath: fullPath }
+    }
+  }
+
+  static buildFullPath(relativePath: string): string {
+    const baseDir: string = AppStorage.get<string>('appFilesDir') ?? ''
+    if (baseDir.length === 0) {
+      return ''
+    }
+    return baseDir + '/' + relativePath
+  }
+
+  static ensureParentDirForFile(fullPath: string): boolean {
+    try {
+      FileStorageService.ensureParentDir(fullPath)
+      return true
+    } catch (err) {
+      return false
     }
   }
 
@@ -63,7 +79,7 @@ export class FileStorageService {
     }
   }
 
-  private static async ensureParentDir(fullPath: string): Promise<void> {
+  private static ensureParentDir(fullPath: string): void {
     const splitIndex: number = fullPath.lastIndexOf('/')
     if (splitIndex <= 0) {
       return

@@ -32,32 +32,41 @@ export struct exportManagerPage {
   @Local loading: boolean = false
   @Local loadError: string = ''
   @Local deletingId: string = ''
+  @Local showDeleteConfirm: boolean = false
+  @Local pendingDeleteItem?: ExportHistoryItem = undefined
 
   async aboutToAppear() {
     await this.loadExportRecords()
   }
 
   build() {
-    Column() {
-      this.Header()
-      Scroll() {
-        Column() {
-          if (this.loading) {
-            this.LoadingState()
-          } else if (this.loadError.length > 0) {
-            this.ErrorState()
-          } else if (this.records.length === 0) {
-            this.EmptyState()
-          } else {
-            this.RecordList()
+    Stack() {
+      Column() {
+        this.Header()
+        Scroll() {
+          Column() {
+            if (this.loading) {
+              this.LoadingState()
+            } else if (this.loadError.length > 0) {
+              this.ErrorState()
+            } else if (this.records.length === 0) {
+              this.EmptyState()
+            } else {
+              this.RecordList()
+            }
           }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 14, bottom: 24 })
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 14, bottom: 24 })
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
       }
       .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
+      .height('100%')
+      if (this.showDeleteConfirm) {
+        this.DeleteConfirmPanel()
+      }
     }
     .width('100%')
     .height('100%')
@@ -155,7 +164,7 @@ export struct exportManagerPage {
           .fontSize(12)
           .fontColor('#B65A4B')
           .onClick(() => {
-            this.deleteRecord(item)
+            this.prepareDeleteRecord(item)
           })
       }
       .width('100%')
@@ -225,6 +234,59 @@ export struct exportManagerPage {
     .borderRadius(16)
   }
 
+  @Builder
+  DeleteConfirmPanel() {
+    Column() {
+      Blank()
+      Column() {
+        Text('删除导出文件？')
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#2C2825')
+        Text(this.getDeleteConfirmText())
+          .fontSize(14)
+          .fontColor('#7D7872')
+          .lineHeight(21)
+          .margin({ top: 10 })
+        Row() {
+          Text('取消')
+            .fontSize(15)
+            .fontColor('#7D7872')
+            .layoutWeight(1)
+            .height(42)
+            .textAlign(TextAlign.Center)
+            .backgroundColor('#F1EEE8')
+            .borderRadius(21)
+            .onClick(() => {
+              this.cancelDeleteRecord()
+            })
+          Text('确认删除')
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#FFFFFF')
+            .layoutWeight(1)
+            .height(42)
+            .textAlign(TextAlign.Center)
+            .backgroundColor('#B65A4B')
+            .borderRadius(21)
+            .margin({ left: 12 })
+            .onClick(() => {
+              this.confirmDeleteRecord()
+            })
+        }
+        .width('100%')
+        .margin({ top: 22 })
+      }
+      .width('100%')
+      .padding(20)
+      .backgroundColor('#FFFFFF')
+      .borderRadius({ topLeft: 22, topRight: 22 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#66000000')
+  }
+
   /**
    * 加载导出历史
    *
@@ -262,11 +324,39 @@ export struct exportManagerPage {
     }
   }
 
+  prepareDeleteRecord(item: ExportHistoryItem) {
+    this.pendingDeleteItem = item
+    this.showDeleteConfirm = true
+  }
+
+  cancelDeleteRecord() {
+    this.pendingDeleteItem = undefined
+    this.showDeleteConfirm = false
+  }
+
+  async confirmDeleteRecord() {
+    if (this.pendingDeleteItem === undefined) {
+      this.showDeleteConfirm = false
+      return
+    }
+    await this.deleteRecord(this.pendingDeleteItem)
+  }
+
+  getDeleteConfirmText(): string {
+    if (this.pendingDeleteItem === undefined) {
+      return '将删除导出历史记录。'
+    }
+    if (this.pendingDeleteItem.fileExists) {
+      return '将同时删除沙箱中的 PDF 文件和导出历史记录，操作后无法恢复。'
+    }
+    return '当前文件已缺失，将只删除导出历史记录。'
+  }
+
   /**
    * 删除导出记录和真实文件
    *
    * 多行说明：
-   * 1. 删除导出记录前先尝试删除真实文件，避免数据库历史删除后文件残留在沙箱中占用空间。
+   * 1. 删除导出记录前先要求用户二次确认，避免误删真实 PDF 文件。
    * 2. 如果文件本来不存在，FileStorageService.deleteFile 会视为成功，并继续删除数据库历史。
    * 3. 如果真实文件删除失败，则停止删除数据库记录，保留用户可重试的历史入口。
    */
@@ -283,8 +373,11 @@ export struct exportManagerPage {
         return
       }
       await ExportRecordRepository.deleteRecord(item.id)
+      this.pendingDeleteItem = undefined
+      this.showDeleteConfirm = false
       await this.loadExportRecords()
     } catch (err) {
+      this.showDeleteConfirm = false
       this.loadError = '导出记录删除失败，请稍后重试'
     }
     this.deletingId = ''
