@@ -42,6 +42,8 @@ export class PAGE_PATH {
   static readonly EXPORT_MANAGER_PAGE: string = "exportManagerPage"
   /**设置页面*/
   static readonly SETTINGS_PAGE: string = "settingsPage"
+  /**备份与恢复页面*/
+  static readonly BACKUP_PAGE: string = "backupPage"
   /**PDF 预览页面*/
   static readonly PDF_PREVIEW_PAGE: string = "pdfPreviewPage"
 }
