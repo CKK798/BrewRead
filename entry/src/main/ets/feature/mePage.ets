@@ -31,6 +31,11 @@ interface CoffeeInsight {
   summary: string
 }
 
+interface ReadingPersona {
+  hasData: boolean
+  summary: string
+}
+
 /**
  * 我的页面
  *
@@ -53,6 +58,10 @@ export struct mePage {
     coffeeCount: 0,
     moodName: '',
     summary: '记录几次配咖啡的阅读时刻后，这里会生成你的咖伴画像。'
+  }
+  @Local readingPersona: ReadingPersona = {
+    hasData: false,
+    summary: '写下几条阅读记录后，这里会生成你的阅读人格画像。'
   }
   @Local loading: boolean = false
   @Local loadError: string = ''
@@ -124,6 +133,14 @@ export struct mePage {
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
+    Text(this.readingPersona.summary)
+      .fontSize(14)
+      .fontColor('#7D7872')
+      .lineHeight(21)
+      .margin({ top: 16 })
+      .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+      .backgroundColor('#FFFFFF')
+      .borderRadius(16)
   }
 
   @Builder
@@ -423,6 +440,7 @@ export struct mePage {
       this.entryCount = entries.length
       this.moods = this.buildMoodStats(entries)
       this.coffeeInsight = this.buildCoffeeInsight(entries)
+      this.readingPersona = this.buildReadingPersona(entries, this.coffeeInsight)
       this.trends = this.buildTrendStats(entries)
     } catch (err) {
       this.loadError = '阅读统计加载失败，请稍后重试'
@@ -444,6 +462,29 @@ export struct mePage {
       stats.push(item)
     }
     return stats
+  }
+
+  buildReadingPersona(entries: ReadingEntryEntity[], coffeeInsight: CoffeeInsight): ReadingPersona {
+    if (entries.length === 0) {
+      return {
+        hasData: false,
+        summary: '写下几条阅读记录后，这里会生成你的阅读人格画像。'
+      }
+    }
+    let topMoodName: string = '平静'
+    let topMoodPercent: number = 0
+    this.moods.forEach((item: MoodStatItem) => {
+      if (item.percent > topMoodPercent) {
+        topMoodName = item.name
+        topMoodPercent = item.percent
+      }
+    })
+    const bookText: string = this.finishedBookCount > 0 ? '读完了 ' + this.finishedBookCount + ' 本书' : '正在和 ' + this.readingBookCount + ' 本书相处'
+    const coffeeText: string = coffeeInsight.hasData ? '，' + coffeeInsight.coffeeName + '最常陪在旁边' : ''
+    return {
+      hasData: true,
+      summary: '这段时间，你留下了 ' + entries.length + ' 条阅读时刻，' + bookText + '，大多数时候心情是“' + topMoodName + '”' + coffeeText + '。'
+    }
   }
 
   buildCoffeeInsight(entries: ReadingEntryEntity[]): CoffeeInsight {
