@@ -352,7 +352,7 @@ export struct calenderPage {
   selectDay(timestamp: number) {
     this.selectedTimestamp = timestamp
     this.days = this.days.map((item: CalendarDayItem) => {
-      return {
+      const nextItem: CalendarDayItem = {
         day: item.day,
         timestamp: item.timestamp,
         level: item.level,
@@ -360,6 +360,7 @@ export struct calenderPage {
         entryCount: item.entryCount,
         readPages: item.readPages
       }
+      return nextItem
     })
     this.refreshSelectedDaySummary()
   }
