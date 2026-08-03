@@ -33,6 +33,9 @@ export struct bookJournalPage {
   @Local loadError: string = ''
   @Local totalPages: number = 0
   @Local coffeeCount: number = 0
+  @Local showDeleteBookConfirm: boolean = false
+  @Local showDeleteEntryConfirm: boolean = false
+  @Local pendingDeleteEntryId: string = ''
   private bookId: string = ''
 
   async aboutToAppear() {
@@ -41,31 +44,41 @@ export struct bookJournalPage {
   }
 
   build() {
-    Column() {
-      Scroll() {
-        Column() {
-          this.Header()
-          if (this.loading) {
-            this.LoadingState()
-          } else if (this.loadError.length > 0) {
-            this.ErrorState()
-          } else {
-            this.SummaryBar()
-            if (this.entries.length === 0) {
-              this.EmptyState()
+    Stack() {
+      Column() {
+        Scroll() {
+          Column() {
+            this.Header()
+            if (this.loading) {
+              this.LoadingState()
+            } else if (this.loadError.length > 0) {
+              this.ErrorState()
             } else {
-              this.Timeline()
-              this.ExportButton()
+              this.SummaryBar()
+              if (this.entries.length === 0) {
+                this.EmptyState()
+              } else {
+                this.Timeline()
+                this.ExportButton()
+              }
             }
           }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 20, bottom: 24 })
         }
+        .align(Alignment.Top)
         .width('100%')
-        .padding({ left: 16, right: 16, top: 20, bottom: 24 })
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
       }
-      .align(Alignment.Top)
       .width('100%')
-      .layoutWeight(1)
-      .scrollBar(BarState.Off)
+      .height('100%')
+      if (this.showDeleteBookConfirm) {
+        this.DeleteBookConfirmPanel()
+      }
+      if (this.showDeleteEntryConfirm) {
+        this.DeleteEntryConfirmPanel()
+      }
     }
     .width('100%')
     .height('100%')
@@ -115,7 +128,7 @@ export struct bookJournalPage {
         .height(32)
         .textAlign(TextAlign.Center)
         .onClick(() => {
-          this.deleteCurrentBook()
+          this.showDeleteBookConfirm = true
         })
     }
     .width('100%')
@@ -201,12 +214,29 @@ export struct bookJournalPage {
           .fontSize(16)
           .fontColor('#2C2825')
           .lineHeight(23)
-          .maxLines(3)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .margin({ top: 12 })
+        Row() {
+          Text('编辑')
+            .fontSize(12)
+            .fontColor('#C2865E')
+            .margin({ right: 18 })
+            .onClick(() => {
+              this.openEditEntryPage(item.id)
+            })
+          Text('删除')
+            .fontSize(12)
+            .fontColor('#B65A4B')
+            .onClick(() => {
+              this.prepareDeleteEntry(item.id)
+            })
+        }
+        .alignSelf(ItemAlign.End)
+        .margin({ top: 8 })
       }
       .layoutWeight(1)
-      .padding({ left: 12, right: 14, top: 14, bottom: 14 })
+      .padding({ left: 12, right: 14, top: 14, bottom: 12 })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
@@ -273,7 +303,7 @@ export struct bookJournalPage {
         .borderRadius(19)
         .margin({ top: 18 })
         .onClick(() => {
-          HMRouterMgr.push({ pageUrl: PAGE_PATH.ENTRY_EDIT_PAGE })
+          this.openNewEntryPage()
         })
     }
     .width('100%')
@@ -297,6 +327,74 @@ export struct bookJournalPage {
     .margin({ top: 8 })
     .backgroundColor('#C2865E')
     .borderRadius(25)
+  }
+
+  @Builder
+  DeleteBookConfirmPanel() {
+    this.ConfirmPanel('删除这本书？', '这会同时删除这本书下的阅读记录，操作后无法恢复。', '删除书籍', () => {
+      this.deleteCurrentBook()
+    }, () => {
+      this.showDeleteBookConfirm = false
+    })
+  }
+
+  @Builder
+  DeleteEntryConfirmPanel() {
+    this.ConfirmPanel('删除这条记录？', '删除后这条阅读感悟、页码和咖啡信息将无法恢复。', '删除记录', () => {
+      this.deleteEntry(this.pendingDeleteEntryId)
+    }, () => {
+      this.showDeleteEntryConfirm = false
+      this.pendingDeleteEntryId = ''
+    })
+  }
+
+  @Builder
+  ConfirmPanel(title: string, desc: string, dangerText: string, onConfirm: () => void, onCancel: () => void) {
+    Column() {
+      Blank()
+      Column() {
+        Text(title)
+          .fontSize(20)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#2C2825')
+        Text(desc)
+          .fontSize(14)
+          .fontColor('#7D7872')
+          .lineHeight(21)
+          .margin({ top: 10 })
+        Row() {
+          Text('取消')
+            .fontSize(15)
+            .fontColor('#7D7872')
+            .layoutWeight(1)
+            .height(42)
+            .textAlign(TextAlign.Center)
+            .backgroundColor('#F1EEE8')
+            .borderRadius(21)
+            .onClick(onCancel)
+          Text(dangerText)
+            .fontSize(15)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#FFFFFF')
+            .layoutWeight(1)
+            .height(42)
+            .textAlign(TextAlign.Center)
+            .backgroundColor('#B65A4B')
+            .borderRadius(21)
+            .margin({ left: 12 })
+            .onClick(onConfirm)
+        }
+        .width('100%')
+        .margin({ top: 22 })
+      }
+      .width('100%')
+      .padding(20)
+      .backgroundColor('#FFFFFF')
+      .borderRadius({ topLeft: 22, topRight: 22 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#66000000')
   }
 
   /**
@@ -374,6 +472,60 @@ export struct bookJournalPage {
   }
 
   /**
+   * 打开新建阅读记录页面
+   *
+   * 多行说明：
+   * 1. 新建记录前必须清空 selectedEntryId，避免用户上次编辑过记录后再次进入时误判为编辑模式。
+   * 2. 同时保留 selectedBookId，让写记录页后续可以默认选中当前书籍。
+   * 3. 当前写记录页已兼容新建和编辑两种模式，入口侧负责传递清晰的上下文。
+   */
+  openNewEntryPage() {
+    AppStorage.setOrCreate('selectedEntryId', '')
+    AppStorage.setOrCreate('selectedBookId', this.bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.ENTRY_EDIT_PAGE })
+  }
+
+  /**
+   * 打开编辑阅读记录页面
+   *
+   * 多行说明：
+   * 1. 编辑记录时写入 selectedEntryId，写记录页会据此读取原始记录并进入编辑模式。
+   * 2. selectedBookId 继续保留当前书籍，便于编辑页在书籍候选列表中定位上下文。
+   * 3. 编辑成功返回后，本页 aboutToAppear 会重新加载时间线和摘要统计。
+   */
+  openEditEntryPage(entryId: string) {
+    AppStorage.setOrCreate('selectedEntryId', entryId)
+    AppStorage.setOrCreate('selectedBookId', this.bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.ENTRY_EDIT_PAGE })
+  }
+
+  prepareDeleteEntry(entryId: string) {
+    this.pendingDeleteEntryId = entryId
+    this.showDeleteEntryConfirm = true
+  }
+
+  /**
+   * 删除单条阅读记录
+   *
+   * 多行说明：
+   * 1. 删除记录只调用 ReadingEntryRepository.deleteEntry，不影响书籍自身数据。
+   * 2. 删除成功后立即重新加载当前书籍日记本，确保记录数、咖啡数和阅读页数同步刷新。
+   * 3. 删除完成后清理 pendingDeleteEntryId 和 selectedEntryId，避免后续进入写记录页误判编辑上下文。
+   */
+  async deleteEntry(entryId: string) {
+    try {
+      await ReadingEntryRepository.deleteEntry(entryId)
+      this.showDeleteEntryConfirm = false
+      this.pendingDeleteEntryId = ''
+      AppStorage.setOrCreate('selectedEntryId', '')
+      await this.loadJournal()
+    } catch (err) {
+      this.showDeleteEntryConfirm = false
+      this.loadError = '删除记录失败，请稍后重试'
+    }
+  }
+
+  /**
    * 打开编辑书籍页面
    *
    * 多行说明：
@@ -401,8 +553,12 @@ export struct bookJournalPage {
     }
     try {
       await BookRepository.deleteBook(this.bookId)
+      this.showDeleteBookConfirm = false
+      AppStorage.setOrCreate('selectedBookId', '')
+      AppStorage.setOrCreate('selectedEntryId', '')
       HMRouterMgr.pop()
     } catch (err) {
+      this.showDeleteBookConfirm = false
       this.loadError = '删除失败，请稍后重试'
     }
   }

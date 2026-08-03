@@ -35,6 +35,7 @@ export struct entryEditPage {
 
   async aboutToAppear() {
     this.editingEntryId = AppStorage.get<string>('selectedEntryId') ?? ''
+    this.selectedBookId = AppStorage.get<string>('selectedBookId') ?? ''
     await this.loadSelectableBooks()
     if (this.editingEntryId.length > 0) {
       await this.loadEditingEntry()

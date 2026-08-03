@@ -367,6 +367,7 @@ export struct journalPage {
    * 3. 写记录页保存成功后 pop 返回记录页，aboutToAppear 会再次触发并刷新真实时间线。
    */
   openEntryEditPage() {
+    AppStorage.setOrCreate('selectedEntryId', '')
     HMRouterMgr.push({ pageUrl: PAGE_PATH.ENTRY_EDIT_PAGE })
   }
 }
