@@ -3,6 +3,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import { DatabaseManager } from '../services/database/DatabaseManager';
+import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
 
 const DOMAIN = 0x0000;
 
@@ -29,6 +30,11 @@ export default class EntryAbility extends UIAbility {
      */
     DatabaseManager.init(this.context).then(() => {
       hilog.info(DOMAIN, 'testTag', '%{public}s', 'Database initialized');
+      ThemePreferenceService.loadThemeModeToStorage().then(() => {
+        hilog.info(DOMAIN, 'testTag', '%{public}s', 'Theme preference loaded');
+      }).catch((err: Error) => {
+        hilog.error(DOMAIN, 'testTag', 'Theme preference load failed. Cause: %{public}s', JSON.stringify(err));
+      })
     }).catch((err: Error) => {
       hilog.error(DOMAIN, 'testTag', 'Database init failed. Cause: %{public}s', JSON.stringify(err));
     })

@@ -2,6 +2,8 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { ThemeMode } from '../../models/AppSettingModel';
 import { PAGE_PATH } from '../../pagePath';
 import { AppSettingRepository } from '../../services/repository/AppSettingRepository';
+import { ThemePalette } from '../../theme/ThemeTokens';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 
 interface ThemeOptionItem {
   title: string
@@ -24,6 +26,7 @@ export struct appearanceSettingsPage {
   @Local loading: boolean = false
   @Local saving: boolean = false
   @Local message: string = ''
+  @Local renderMode: ThemeMode = ThemeMode.SYSTEM
   private options: ThemeOptionItem[] = [
     { title: '跟随系统', desc: '根据系统外观自动切换', mode: ThemeMode.SYSTEM },
     { title: '晨雾浅色', desc: '温暖明亮，适合白天阅读记录', mode: ThemeMode.LIGHT },
@@ -45,7 +48,7 @@ export struct appearanceSettingsPage {
           if (this.message.length > 0) {
             Text(this.message)
               .fontSize(13)
-              .fontColor('#7D7872')
+              .fontColor(this.getPalette().textSecondary)
               .margin({ top: 14 })
           }
         }
@@ -56,7 +59,7 @@ export struct appearanceSettingsPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -65,7 +68,7 @@ export struct appearanceSettingsPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -76,10 +79,10 @@ export struct appearanceSettingsPage {
         Text('外观设置')
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
         Text('选择你喜欢的啡阅主题')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor('this.getPalette().textSecondary')
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -99,7 +102,7 @@ export struct appearanceSettingsPage {
             Text(item.title)
               .fontSize(17)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#2C2825')
+              .fontColor('this.getPalette().textPrimary')
             Text(item.desc)
               .fontSize(12)
               .fontColor('#7D7872')
@@ -109,16 +112,16 @@ export struct appearanceSettingsPage {
           .layoutWeight(1)
           Text(this.selectedMode === item.mode ? '✓' : '')
             .fontSize(18)
-            .fontColor('#C2865E')
+            .fontColor(this.getPalette().primary)
             .width(28)
             .textAlign(TextAlign.End)
         }
         .width('100%')
         .padding(16)
         .margin({ bottom: 12 })
-        .backgroundColor('#FFFFFF')
+        .backgroundColor(this.getPalette().cardBg)
         .borderRadius(16)
-        .border({ width: this.selectedMode === item.mode ? 1 : 0, color: '#C2865E' })
+        .border({ width: this.selectedMode === item.mode ? 1 : 0, color: 'this.getPalette().primary' })
         .onClick(() => {
           this.saveMode(item.mode)
         })
@@ -137,7 +140,7 @@ export struct appearanceSettingsPage {
     .width('100%')
     .height(160)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(16)
   }
 
@@ -149,7 +152,19 @@ export struct appearanceSettingsPage {
       this.message = '外观偏好读取失败，将使用跟随系统'
       this.selectedMode = ThemeMode.SYSTEM
     }
+    this.renderMode = this.selectedMode
+    ThemePreferenceService.syncThemeModeToStorage(this.selectedMode)
     this.loading = false
+  }
+
+  getPalette(): ThemePalette {
+    if (this.renderMode === ThemeMode.DARK) {
+      return ThemePreferenceService.getCurrentPalette()
+    }
+    if (this.renderMode === ThemeMode.LIGHT) {
+      return ThemePreferenceService.getCurrentPalette()
+    }
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   /**
@@ -168,7 +183,9 @@ export struct appearanceSettingsPage {
     this.message = ''
     try {
       await AppSettingRepository.saveThemeMode(mode)
+      ThemePreferenceService.syncThemeModeToStorage(mode)
       this.selectedMode = mode
+      this.renderMode = mode
       this.message = '外观偏好已保存'
     } catch (err) {
       this.message = '保存失败，请稍后重试'
