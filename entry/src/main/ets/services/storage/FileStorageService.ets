@@ -14,6 +14,7 @@ export interface FileDeleteResult {
 export interface FileCopyResult {
   success: boolean
   message: string
+  bytesCopied?: number
 }
 
 /**
@@ -69,6 +70,18 @@ export class FileStorageService {
     }
   }
 
+  static getFileSize(filePath: string): number {
+    if (!FileStorageService.exists(filePath)) {
+      return 0
+    }
+    try {
+      const stat = fileIo.statSync(filePath)
+      return stat.size
+    } catch (err) {
+      return 0
+    }
+  }
+
   static deleteFile(filePath: string): FileDeleteResult {
     if (filePath.length === 0) {
       return { success: true, message: '文件路径为空，仅删除记录' }
@@ -86,18 +99,41 @@ export class FileStorageService {
 
   static copyFile(sourcePath: string, targetPath: string): FileCopyResult {
     if (!FileStorageService.exists(sourcePath)) {
-      return { success: false, message: '源文件不存在，请重新导出 PDF' }
+      return { success: false, message: '源文件不存在，请重新导出 PDF', bytesCopied: 0 }
     }
     if (targetPath.length === 0) {
-      return { success: false, message: '目标路径为空，无法保存文件' }
+      return { success: false, message: '目标路径为空，无法保存文件', bytesCopied: 0 }
     }
     try {
-      FileStorageService.ensureParentDir(targetPath)
-      fileIo.copyFileSync(sourcePath, targetPath)
-      return { success: true, message: 'PDF 已保存到你选择的位置' }
+      return FileStorageService.copyFileByStream(sourcePath, targetPath)
     } catch (err) {
-      return { success: false, message: 'PDF 保存到可见位置失败，请稍后重试' }
+      return { success: false, message: 'PDF 保存到可见位置失败，请稍后重试', bytesCopied: 0 }
     }
+  }
+
+  private static copyFileByStream(sourcePath: string, targetPath: string): FileCopyResult {
+    const sourceFile = fileIo.openSync(sourcePath, fileIo.OpenMode.READ_ONLY)
+    const targetFile = fileIo.openSync(targetPath, fileIo.OpenMode.CREATE | fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.TRUNC)
+    let bytesCopied: number = 0
+    try {
+      const bufferSize: number = 8192
+      const buffer = new ArrayBuffer(bufferSize)
+      while (true) {
+        const readSize: number = fileIo.readSync(sourceFile.fd, buffer, { offset: bytesCopied, length: bufferSize })
+        if (readSize <= 0) {
+          break
+        }
+        fileIo.writeSync(targetFile.fd, buffer, { offset: bytesCopied, length: readSize })
+        bytesCopied += readSize
+      }
+    } finally {
+      fileIo.closeSync(sourceFile)
+      fileIo.closeSync(targetFile)
+    }
+    if (bytesCopied <= 0) {
+      return { success: false, message: 'PDF 保存失败：写入目标文件为 0B', bytesCopied: bytesCopied }
+    }
+    return { success: true, message: 'PDF 已保存到你选择的位置，共写入 ' + bytesCopied + ' B', bytesCopied: bytesCopied }
   }
 
   private static ensureParentDir(fullPath: string): void {

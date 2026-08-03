@@ -59,6 +59,11 @@ export class PdfExportService {
       if (!saved) {
         return { success: false, message: 'PDF 文件保存失败，请稍后重试' }
       }
+      const fileSize: number = FileStorageService.getFileSize(fullPath)
+      if (fileSize <= 0) {
+        FileStorageService.deleteFile(fullPath)
+        return { success: false, message: 'PDF 文件为空，导出失败，请稍后重试' }
+      }
 
       const record: ExportRecordEntity = {
         id: IdUtils.createId('export'),
@@ -169,7 +174,7 @@ export class PdfExportService {
 
   private static buildFileName(book: BookEntity, timestamp: number): string {
     const safeBookName: string = FileNameUtils.sanitizeFileName(book.name, '书籍日记本')
-    return safeBookName + '_' + DateUtils.formatDate(timestamp) + '.pdf'
+    return safeBookName + '_' + DateUtils.formatDateTimeForFileName(timestamp) + '.pdf'
   }
 
   private static buildTargetPath(fileName: string): string {

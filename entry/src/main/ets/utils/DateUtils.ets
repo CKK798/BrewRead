@@ -24,6 +24,12 @@ export class DateUtils {
     return date.getFullYear().toString() + '-' + DateUtils.pad(date.getMonth() + 1) + '-' + DateUtils.pad(date.getDate())
   }
 
+  static formatDateTimeForFileName(timestamp: number): string {
+    const date: Date = new Date(timestamp)
+    return date.getFullYear().toString() + '-' + DateUtils.pad(date.getMonth() + 1) + '-' + DateUtils.pad(date.getDate()) + '_' +
+      DateUtils.pad(date.getHours()) + '-' + DateUtils.pad(date.getMinutes()) + '-' + DateUtils.pad(date.getSeconds())
+  }
+
   static formatChineseDate(timestamp: number): string {
     const date: Date = new Date(timestamp)
     return date.getFullYear().toString() + '年' + (date.getMonth() + 1).toString() + '月' + date.getDate().toString() + '日'
