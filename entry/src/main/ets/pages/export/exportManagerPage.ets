@@ -5,7 +5,9 @@ import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ExportRecordRepository } from '../../services/repository/ExportRecordRepository';
 import { FileDeleteResult, FileStorageService } from '../../services/storage/FileStorageService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 import { DateUtils } from '../../utils/DateUtils';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 
 interface ExportHistoryItem {
   id: string
@@ -70,7 +72,7 @@ export struct exportManagerPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -79,7 +81,7 @@ export struct exportManagerPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor('this.getPalette().textPrimary')
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -93,7 +95,7 @@ export struct exportManagerPage {
           .fontColor('#2C2825')
         Text('查看已经生成的书籍日记本导出记录')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor('this.getPalette().textSecondary')
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -121,11 +123,11 @@ export struct exportManagerPage {
         Text('PDF')
           .fontSize(12)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
+          .fontColor('this.getPalette().cardBg')
           .width(42)
           .height(42)
           .textAlign(TextAlign.Center)
-          .backgroundColor('#C2865E')
+          .backgroundColor('this.getPalette().primary')
           .borderRadius(21)
         Column() {
           Text(item.fileName)
@@ -146,7 +148,7 @@ export struct exportManagerPage {
       .width('100%')
       Text(item.filePath)
         .fontSize(12)
-        .fontColor('#A8A39C')
+        .fontColor('this.getPalette().textTertiary')
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .margin({ top: 12 })
