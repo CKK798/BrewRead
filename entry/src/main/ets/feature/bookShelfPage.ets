@@ -1,7 +1,12 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
+import { BookEntity, BookStatus, BookWithProgress } from '../models/BookModel';
 import { PAGE_PATH } from '../pagePath';
+import { BookRepository } from '../services/repository/BookRepository';
+import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { BookUtils } from '../utils/BookUtils';
 
 interface BookShelfItem {
+  id: string
   title: string
   author: string
   progressText: string
@@ -9,39 +14,29 @@ interface BookShelfItem {
   records: number
   coverText: string
   coverStart: string
-  coverEnd: string
 }
 
 /**
  * 书架页面
+ *
+ * 多行说明：
+ * 1. 当前页面已经从静态示例数据切换为本地数据库数据，页面出现时会按选中的书籍状态刷新列表。
+ * 2. UI 卡片仍使用 BookShelfItem 展示模型，避免页面布局直接依赖数据库字段，后续调整数据库结构不影响视图层。
+ * 3. 阅读进度与记录数来自 ReadingEntryRepository，保证书架卡片可以反映真实阅读记录变化。
  */
 @HMRouter({ pageUrl: PAGE_PATH.FEATURE_BOOKSHELF_PAGE })
 @ComponentV2
 export struct bookShelfPage {
   @Local selectedStatus: number = 0
+  @Local books: BookShelfItem[] = []
+  @Local loading: boolean = false
+  @Local loadError: string = ''
   private statusTabs: string[] = ['在读', '已读完', '想读']
-  private books: BookShelfItem[] = [
-    {
-      title: '挪威的森林',
-      author: '村上春树',
-      progressText: '236 / 384',
-      progress: 61,
-      records: 12,
-      coverText: '挪',
-      coverStart: '#C2865E',
-      coverEnd: '#D9A784'
-    },
-    {
-      title: '百年孤独',
-      author: '加西亚·马尔克斯',
-      progressText: '45%',
-      progress: 45,
-      records: 3,
-      coverText: '百',
-      coverStart: '#8EA590',
-      coverEnd: '#B1C8B4'
-    }
-  ]
+  private statusValues: BookStatus[] = [BookStatus.READING, BookStatus.FINISHED, BookStatus.WANT]
+
+  async aboutToAppear() {
+    await this.loadBooks()
+  }
 
   build() {
     Column() {
@@ -49,9 +44,17 @@ export struct bookShelfPage {
         Column() {
           this.Header()
           this.StatusTabs()
-          ForEach(this.books, (item: BookShelfItem) => {
-            this.BookCard(item)
-          }, (item: BookShelfItem) => item.title)
+          if (this.loading) {
+            this.LoadingState()
+          } else if (this.loadError.length > 0) {
+            this.ErrorState()
+          } else if (this.books.length === 0) {
+            this.EmptyState()
+          } else {
+            ForEach(this.books, (item: BookShelfItem) => {
+              this.BookCard(item)
+            }, (item: BookShelfItem) => item.id)
+          }
           this.AddBookCard()
         }
         .width('100%')
@@ -114,7 +117,10 @@ export struct bookShelfPage {
           .backgroundColor(this.selectedStatus === index ? '#C2865E' : Color.Transparent)
           .borderRadius(19)
           .onClick(() => {
-            this.selectedStatus = index
+            if (this.selectedStatus !== index) {
+              this.selectedStatus = index
+              this.loadBooks()
+            }
           })
       }, (item: string) => item)
     }
@@ -185,6 +191,66 @@ export struct bookShelfPage {
   }
 
   @Builder
+  LoadingState() {
+    Column() {
+      Text('正在整理书架...')
+        .fontSize(14)
+        .fontColor('#7D7872')
+    }
+    .width('100%')
+    .height(120)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(14)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
+  ErrorState() {
+    Column() {
+      Text(this.loadError)
+        .fontSize(14)
+        .fontColor('#B65A4B')
+      Text('点我重试')
+        .fontSize(13)
+        .fontColor('#C2865E')
+        .margin({ top: 10 })
+    }
+    .width('100%')
+    .height(130)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(14)
+    .margin({ bottom: 16 })
+    .onClick(() => {
+      this.loadBooks()
+    })
+  }
+
+  @Builder
+  EmptyState() {
+    Column() {
+      Text(this.getEmptyTitle())
+        .fontSize(18)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#2C2825')
+      Text(this.getEmptyDesc())
+        .fontSize(13)
+        .fontColor('#7D7872')
+        .textAlign(TextAlign.Center)
+        .lineHeight(20)
+        .margin({ top: 8 })
+    }
+    .width('100%')
+    .height(150)
+    .padding({ left: 24, right: 24 })
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(14)
+    .margin({ bottom: 16 })
+  }
+
+  @Builder
   AddBookCard() {
     Row() {
       Text('+')
@@ -208,11 +274,86 @@ export struct bookShelfPage {
   }
 
   /**
+   * 加载书架真实数据
+   *
+   * 多行说明：
+   * 1. 根据当前选中的三态 Tab 查询本地 books 表，保证“在读 / 已读完 / 想读”互相独立展示。
+   * 2. 每本书再读取 reading_entries 表中的最大结束页和记录数，用来计算卡片进度条与记录数量。
+   * 3. 加载失败时不清空用户已有页面结构，而是展示错误卡片，方便用户重试和后续排查数据库问题。
+   */
+  async loadBooks() {
+    this.loading = true
+    this.loadError = ''
+    try {
+      const status: BookStatus = this.statusValues[this.selectedStatus]
+      const bookList: BookEntity[] = await BookRepository.queryBooksByStatus(status)
+      const nextBooks: BookShelfItem[] = []
+      for (let index = 0; index < bookList.length; index++) {
+        nextBooks.push(await this.toBookShelfItem(bookList[index], index))
+      }
+      this.books = nextBooks
+    } catch (err) {
+      this.loadError = '书架加载失败，请稍后重试'
+    }
+    this.loading = false
+  }
+
+  async toBookShelfItem(book: BookEntity, index: number): Promise<BookShelfItem> {
+    const currentPage: number = await ReadingEntryRepository.getMaxPageToByBookId(book.id)
+    const recordCount: number = await ReadingEntryRepository.countEntriesByBookId(book.id)
+    const progress: number = BookUtils.calculateProgress(currentPage, book.totalPages)
+    const bookWithProgress: BookWithProgress = {
+      id: book.id,
+      name: book.name,
+      author: book.author,
+      isbn: book.isbn,
+      totalPages: book.totalPages,
+      coverPath: book.coverPath,
+      status: book.status,
+      sortOrder: book.sortOrder,
+      createdAt: book.createdAt,
+      updatedAt: book.updatedAt,
+      currentPage: currentPage,
+      progress: progress,
+      recordCount: recordCount
+    }
+    return {
+      id: book.id,
+      title: book.name,
+      author: book.author === undefined || book.author.length === 0 ? '未填写作者' : book.author,
+      progressText: BookUtils.getProgressText(bookWithProgress),
+      progress: progress,
+      records: recordCount,
+      coverText: BookUtils.getCoverText(book.name),
+      coverStart: this.getCoverColor(index)
+    }
+  }
+
+  getCoverColor(index: number): string {
+    const colors: string[] = ['#C2865E', '#8EA590', '#9B5C3E', '#D9A784']
+    return colors[index % colors.length]
+  }
+
+  getEmptyTitle(): string {
+    if (this.selectedStatus === 2) {
+      return '书架在等下一本书'
+    }
+    return '这里还没有书'
+  }
+
+  getEmptyDesc(): string {
+    if (this.selectedStatus === 2) {
+      return '标记你想读的书，它会在书架上等你'
+    }
+    return '添加一本书，开始记录你的阅读与咖啡时刻'
+  }
+
+  /**
    * 打开添加书籍页面
    *
    * 多行说明：
    * 1. 书架页保留底部 Tab 框架，只把添加新书作为二级页面压入 HMRouter 导航栈。
-   * 2. 添加页保存成功后会 pop 返回书架页，后续接入真实数据刷新时可在 aboutToAppear 重新查询列表。
+   * 2. 添加页保存成功后会 pop 返回书架页，aboutToAppear 会再次触发并刷新数据库中的真实书籍。
    * 3. 顶部加号和底部虚线卡片复用同一个方法，避免两个入口的跳转逻辑不一致。
    */
   openAddBookPage() {
