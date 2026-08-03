@@ -2,6 +2,7 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity } from '../../models/BookModel';
 import { getMoodColor, getMoodText, ReadingEntryEntity } from '../../models/ReadingEntryModel';
 import { PAGE_PATH } from '../../pagePath';
+import { PdfExportResult, PdfExportService } from '../../services/export/PdfExportService';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
 import { DateUtils } from '../../utils/DateUtils';
@@ -36,6 +37,8 @@ export struct bookJournalPage {
   @Local showDeleteBookConfirm: boolean = false
   @Local showDeleteEntryConfirm: boolean = false
   @Local pendingDeleteEntryId: string = ''
+  @Local exportMessage: string = ''
+  @Local exporting: boolean = false
   private bookId: string = ''
 
   async aboutToAppear() {
@@ -315,18 +318,30 @@ export struct bookJournalPage {
 
   @Builder
   ExportButton() {
-    Row() {
-      Text('📄 导出为 PDF')
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor('#FFFFFF')
+    Column() {
+      Row() {
+        Text(this.exporting ? '正在导出...' : '📄 导出为 PDF')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#FFFFFF')
+      }
+      .width('100%')
+      .height(50)
+      .justifyContent(FlexAlign.Center)
+      .backgroundColor(this.exporting ? '#80C2865E' : '#C2865E')
+      .borderRadius(25)
+      .onClick(() => {
+        this.exportCurrentBook()
+      })
+      if (this.exportMessage.length > 0) {
+        Text(this.exportMessage)
+          .fontSize(12)
+          .fontColor('#7D7872')
+          .margin({ top: 8 })
+      }
     }
     .width('100%')
-    .height(50)
-    .justifyContent(FlexAlign.Center)
     .margin({ top: 8 })
-    .backgroundColor('#C2865E')
-    .borderRadius(25)
   }
 
   @Builder
@@ -395,6 +410,29 @@ export struct bookJournalPage {
     .width('100%')
     .height('100%')
     .backgroundColor('#66000000')
+  }
+
+  /**
+   * 导出当前书籍日记本
+   *
+   * 多行说明：
+   * 1. 当前按钮先接入 PdfExportService 的基础链路，生成导出历史记录并返回提示。
+   * 2. 如果当前书籍未加载成功，则阻止导出，避免生成没有 bookId 的无效导出记录。
+   * 3. 后续真正接入 PDF 文件绘制后，这个入口不需要改变，只需要增强服务内部实现。
+   */
+  async exportCurrentBook() {
+    if (this.exporting) {
+      return
+    }
+    if (this.book === undefined) {
+      this.exportMessage = '书籍未加载，暂不能导出'
+      return
+    }
+    this.exporting = true
+    this.exportMessage = ''
+    const result: PdfExportResult = await PdfExportService.exportBookJournal(this.book)
+    this.exportMessage = result.message
+    this.exporting = false
   }
 
   /**
