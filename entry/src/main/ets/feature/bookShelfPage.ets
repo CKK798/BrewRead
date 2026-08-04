@@ -3,6 +3,8 @@ import { BookEntity, BookStatus, BookWithProgress } from '../models/BookModel';
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../theme/ThemeTokens';
 import { BookUtils } from '../utils/BookUtils';
 
 interface BookShelfItem {
@@ -65,9 +67,13 @@ export struct bookShelfPage {
       .height('100%')
       .scrollBar(BarState.Off)
     }
-    .backgroundColor('#F6F4F0')
+    .backgroundColor('this.getPalette().pageBg')
     .width('100%')
     .height('100%')
+  }
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   @Builder
