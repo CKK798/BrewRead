@@ -4,6 +4,8 @@ import { getMoodText, ReadingEntryEntity, ReadingMood } from '../../models/Readi
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 import { DateUtils } from '../../utils/DateUtils';
 
 interface FinishCeremonyStats {
@@ -42,6 +44,10 @@ export struct finishCeremonyPage {
     await this.loadCeremony()
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   build() {
     Column() {
       this.Header()
@@ -65,7 +71,7 @@ export struct finishCeremonyPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor('this.getPalette().pageBg')
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -74,7 +80,7 @@ export struct finishCeremonyPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor('this.getPalette().textPrimary')
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -88,7 +94,7 @@ export struct finishCeremonyPage {
           .fontColor('#2C2825')
         Text(this.book === undefined ? '为一本书好好收尾' : this.book.name)
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor('this.getPalette().textSecondary')
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -108,7 +114,7 @@ export struct finishCeremonyPage {
         .fontColor('#2C2825')
       Text(this.book === undefined ? '' : '《' + this.book.name + '》')
         .fontSize(18)
-        .fontColor('#C2865E')
+        .fontColor('this.getPalette().primary')
         .margin({ top: 8 })
       Row() {
         this.StatPill('记录', this.stats.recordCount.toString(), '条')
@@ -142,7 +148,7 @@ export struct finishCeremonyPage {
     .width('100%')
     .padding(20)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(18)
   }
 

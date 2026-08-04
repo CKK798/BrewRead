@@ -67,7 +67,7 @@ export struct bookShelfPage {
       .height('100%')
       .scrollBar(BarState.Off)
     }
-    .backgroundColor('this.getPalette().pageBg')
+    .backgroundColor(this.getPalette().pageBg)
     .width('100%')
     .height('100%')
   }
@@ -83,10 +83,10 @@ export struct bookShelfPage {
         Text('我的书架')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
         Text('把每一本书酿成可回味的记录')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 6 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -94,12 +94,12 @@ export struct bookShelfPage {
 
       Text('+')
         .fontSize(28)
-        .fontColor('#FFFFFF')
+        .fontColor(this.getPalette().cardBg)
         .fontWeight(FontWeight.Regular)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
-        .backgroundColor('#C2865E')
+        .backgroundColor(this.getPalette().primary)
         .borderRadius(22)
         .shadow({ radius: 8, color: '#1AC2865E', offsetX: 0, offsetY: 4 })
         .onClick(() => {
@@ -117,11 +117,11 @@ export struct bookShelfPage {
         Text(item)
           .fontSize(14)
           .fontWeight(this.selectedStatus === index ? FontWeight.Medium : FontWeight.Regular)
-          .fontColor(this.selectedStatus === index ? '#FFFFFF' : '#7D7872')
+          .fontColor(this.selectedStatus === index ? this.getPalette().cardBg : this.getPalette().textSecondary)
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
           .height(38)
-          .backgroundColor(this.selectedStatus === index ? '#C2865E' : Color.Transparent)
+          .backgroundColor(this.selectedStatus === index ? this.getPalette().primary : Color.Transparent)
           .borderRadius(19)
           .onClick(() => {
             if (this.selectedStatus !== index) {
@@ -135,7 +135,7 @@ export struct bookShelfPage {
     .height(46)
     .padding(4)
     .margin({ top: 24, bottom: 16 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.getPalette().cardBg)
     .borderRadius(23)
     .border({ width: 0.5, color: '#0D000000' })
   }
@@ -158,18 +158,18 @@ export struct bookShelfPage {
         Text(item.title)
           .fontSize(20)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(item.author)
           .fontSize(14)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 6 })
 
         Row() {
           Stack({ alignContent: Alignment.Start }) {
-            Row().height(8).width('100%').backgroundColor('#F1EEE8').borderRadius(4)
-            Row().height(8).width(item.progress + '%').backgroundColor('#C2865E').borderRadius(4)
+            Row().height(8).width('100%').backgroundColor(this.getPalette().inputBg).borderRadius(4)
+            Row().height(8).width(item.progress + '%').backgroundColor('this.getPalette().primary').borderRadius(4)
           }
           .layoutWeight(1)
           Text(item.progressText)

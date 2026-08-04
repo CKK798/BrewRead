@@ -2,7 +2,8 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity, BookStatus } from '../../models/BookModel';
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
-import { BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette, BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
 import { IdUtils } from '../../utils/IdUtils';
 import { ValidationResult, ValidationUtils } from '../../utils/ValidationUtils';
 
@@ -25,6 +26,10 @@ export struct addBookPage {
   @Local errorMessage: string = ''
   @Local saving: boolean = false
   private statusList: BookStatus[] = [BookStatus.READING, BookStatus.FINISHED, BookStatus.WANT]
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
 
   build() {
     Column() {
@@ -54,7 +59,7 @@ export struct addBookPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(BrewTheme.light.pageBg)
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -63,7 +68,7 @@ export struct addBookPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor(BrewTheme.light.textPrimary)
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -74,10 +79,10 @@ export struct addBookPage {
         Text('添加新书')
           .fontSize(BrewFontSize.title)
           .fontWeight(FontWeight.Bold)
-          .fontColor(BrewTheme.light.textPrimary)
+          .fontColor(this.getPalette().textPrimary)
         Text('标记你想读或正在读的书')
           .fontSize(BrewFontSize.caption)
-          .fontColor(BrewTheme.light.textSecondary)
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 4 })
       }
       .alignItems(HorizontalAlign.Start)

@@ -2,7 +2,8 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity, BookStatus } from '../../models/BookModel';
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
-import { BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette, BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
 import { ValidationResult, ValidationUtils } from '../../utils/ValidationUtils';
 
 /**
@@ -32,6 +33,10 @@ export struct editBookPage {
     await this.loadBook()
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   build() {
     Column() {
       this.Header()
@@ -40,7 +45,7 @@ export struct editBookPage {
           if (this.loading) {
             Text('正在读取书籍信息...')
               .fontSize(BrewFontSize.secondary)
-              .fontColor(BrewTheme.light.textSecondary)
+              .fontColor(this.getPalette().textSecondary)
               .width('100%')
               .height(120)
               .textAlign(TextAlign.Center)
@@ -68,7 +73,7 @@ export struct editBookPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(BrewTheme.light.pageBg)
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -77,7 +82,7 @@ export struct editBookPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor(BrewTheme.light.textPrimary)
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)

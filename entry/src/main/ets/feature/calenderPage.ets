@@ -4,6 +4,8 @@ import { getMoodText, ReadingEntryEntity } from '../models/ReadingEntryModel';
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../theme/ThemeTokens';
 import { DateUtils } from '../utils/DateUtils';
 
 interface CalendarDayItem {
@@ -62,7 +64,7 @@ export struct calenderPage {
           } else {
             this.WeekHeader()
             this.CalendarGrid()
-            Divider().color('#1A000000').margin({ top: 22, bottom: 18 })
+            Divider().color('this.getPalette().divider').margin({ top: 22, bottom: 18 })
             this.DaySummaryCard()
             this.MonthStats()
           }
@@ -75,9 +77,13 @@ export struct calenderPage {
       .height('100%')
       .scrollBar(BarState.Off)
     }
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .width('100%')
     .height('100%')
+  }
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   @Builder
@@ -85,7 +91,7 @@ export struct calenderPage {
     Row() {
       Text('‹')
         .fontSize(28)
-        .fontColor('#7D7872')
+        .fontColor(this.getPalette().textSecondary)
         .width(40)
         .textAlign(TextAlign.Start)
         .onClick(() => {
@@ -94,12 +100,12 @@ export struct calenderPage {
       Text(this.currentYear + '年' + (this.currentMonth + 1) + '月')
         .fontSize(28)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#2C2825')
+        .fontColor(this.getPalette().textPrimary)
         .layoutWeight(1)
         .textAlign(TextAlign.Center)
       Text('›')
         .fontSize(28)
-        .fontColor('#7D7872')
+        .fontColor(this.getPalette().textSecondary)
         .width(40)
         .textAlign(TextAlign.End)
         .onClick(() => {
@@ -116,7 +122,7 @@ export struct calenderPage {
       ForEach(this.weeks, (item: string) => {
         Text(item)
           .fontSize(12)
-          .fontColor('#A8A39C')
+          .fontColor(this.getPalette().textTertiary)
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
       }, (item: string) => item)
@@ -133,11 +139,11 @@ export struct calenderPage {
           Column() {
             Text(item.day)
               .fontSize(13)
-              .fontColor(item.selected ? '#FFFFFF' : '#7D7872')
+              .fontColor(item.selected ? this.getPalette().cardBg : 'this.getPalette().textSecondary')
               .textAlign(TextAlign.Center)
               .width(30)
               .height(24)
-              .backgroundColor(item.selected ? '#C2865E' : Color.Transparent)
+              .backgroundColor(item.selected ? this.getPalette().primary : Color.Transparent)
               .borderRadius(12)
             if (item.day !== '') {
               Circle()
@@ -176,7 +182,7 @@ export struct calenderPage {
     .width('100%')
     .height(180)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(16)
     .margin({ top: 24 })
   }
@@ -189,7 +195,7 @@ export struct calenderPage {
         .fontColor('#B65A4B')
       Text('点我重试')
         .fontSize(13)
-        .fontColor('#C2865E')
+        .fontColor('this.getPalette().primary')
         .margin({ top: 10 })
     }
     .width('100%')
@@ -210,14 +216,14 @@ export struct calenderPage {
         Text('📅 ' + DateUtils.formatMonthDay(this.selectedTimestamp) + ' · ' + DateUtils.getWeekdayText(this.selectedTimestamp))
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
         Text('这一天还没有阅读记录')
           .fontSize(14)
           .fontColor('#7D7872')
           .margin({ top: 14 })
         Text('之后可以从这里补记当天的阅读时刻')
           .fontSize(16)
-          .fontColor('#2C2825')
+          .fontColor('this.getPalette().textPrimary')
           .lineHeight(24)
           .margin({ top: 16 })
       }

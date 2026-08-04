@@ -4,7 +4,8 @@ import { ReadingEntryEntity, ReadingMood, getMoodColor, getMoodText } from '../.
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
-import { BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette, BrewFontSize, BrewRadius, BrewSpacing, BrewTheme } from '../../theme/ThemeTokens';
 import { IdUtils } from '../../utils/IdUtils';
 import { ValidationResult, ValidationUtils } from '../../utils/ValidationUtils';
 
@@ -43,6 +44,10 @@ export struct entryEditPage {
     }
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   build() {
     Column() {
       this.Header()
@@ -72,7 +77,7 @@ export struct entryEditPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(BrewTheme.light.pageBg)
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -81,7 +86,7 @@ export struct entryEditPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor(BrewTheme.light.textPrimary)
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)

@@ -4,6 +4,8 @@ import { getMoodColor, getMoodText, ReadingEntryEntity } from '../models/Reading
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../theme/ThemeTokens';
 import { DateUtils } from '../utils/DateUtils';
 
 interface JournalEntryItem {
@@ -63,9 +65,13 @@ export struct journalPage {
       .height('100%')
       .scrollBar(BarState.Off)
     }
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .width('100%')
     .height('100%')
+  }
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   @Builder
@@ -75,16 +81,16 @@ export struct journalPage {
         Text('阅读记录')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
           .layoutWeight(1)
         Text('写记录')
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#FFFFFF')
+          .fontColor(this.getPalette().cardBg)
           .padding({ left: 16, right: 16 })
           .height(38)
           .textAlign(TextAlign.Center)
-          .backgroundColor('#C2865E')
+          .backgroundColor(this.getPalette().primary)
           .borderRadius(19)
           .onClick(() => {
             this.openEntryEditPage()
@@ -95,7 +101,7 @@ export struct journalPage {
 
       Text('把读过的句子，慢慢酿成日记')
         .fontSize(15)
-        .fontColor('#7D7872')
+        .fontColor(this.getPalette().textSecondary)
         .margin({ top: 18 })
     }
     .width('100%')
@@ -110,13 +116,13 @@ export struct journalPage {
         .margin({ right: 8 })
       Text('共 ' + this.entries.length + ' 条记录 · 配咖啡 ' + this.totalCoffeeCount + ' 杯 · ' + this.totalReadPages + ' 页')
         .fontSize(13)
-        .fontColor('#7D7872')
+        .fontColor('this.getPalette().textSecondary')
     }
     .width('100%')
     .height(44)
     .padding({ left: 14, right: 14 })
     .margin({ top: 16, bottom: 20 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(14)
     .border({ width: 0.5, color: '#0D000000' })
   }
@@ -130,7 +136,7 @@ export struct journalPage {
             Circle()
               .width(10)
               .height(10)
-              .fill('#C2865E')
+              .fill('this.getPalette().primary')
             Row()
               .width(2)
               .height(136)
@@ -143,7 +149,7 @@ export struct journalPage {
             Text(item.date)
               .fontSize(15)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#2C2825')
+              .fontColor(this.getPalette().textPrimary)
               .margin({ bottom: 8 })
             this.EntryCard(item)
           }
@@ -169,7 +175,7 @@ export struct journalPage {
           Text(item.mood)
             .fontSize(14)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#2C2825')
+            .fontColor('this.getPalette().textPrimary')
           Text(' · ' + item.bookName)
             .fontSize(14)
             .fontColor('#7D7872')
@@ -179,7 +185,7 @@ export struct journalPage {
         .width('100%')
         Text(item.pages + item.coffee)
           .fontSize(12)
-          .fontColor('#A8A39C')
+          .fontColor(this.getPalette().textTertiary)
           .margin({ top: 6 })
         Text(item.content)
           .fontSize(16)
