@@ -4,6 +4,8 @@ import { getMoodColor, getMoodText, ReadingEntryEntity } from '../../models/Read
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 import { DateUtils } from '../../utils/DateUtils';
 
 interface HighlightEntryItem {
@@ -35,6 +37,10 @@ export struct highlightEntriesPage {
     await this.loadHighlights()
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   build() {
     Column() {
       this.Header()
@@ -59,7 +65,7 @@ export struct highlightEntriesPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
   }
 
@@ -68,7 +74,7 @@ export struct highlightEntriesPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -82,7 +88,7 @@ export struct highlightEntriesPage {
           .fontColor('#2C2825')
         Text('集中回看那些特别想留下的话')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -109,7 +115,7 @@ export struct highlightEntriesPage {
       Row() {
         Text('★')
           .fontSize(18)
-          .fontColor('#C2865E')
+          .fontColor('this.getPalette().primary')
           .width(32)
         Column() {
           Text(item.bookName)
@@ -143,7 +149,7 @@ export struct highlightEntriesPage {
     .padding(16)
     .alignItems(HorizontalAlign.Start)
     .margin({ bottom: 14 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor('this.getPalette().cardBg')
     .borderRadius(16)
     .shadow({ radius: 8, color: '#0A000000', offsetX: 0, offsetY: 2 })
     .onClick(() => {

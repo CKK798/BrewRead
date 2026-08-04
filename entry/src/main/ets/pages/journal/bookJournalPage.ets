@@ -5,6 +5,8 @@ import { PAGE_PATH } from '../../pagePath';
 import { PdfExportResult, PdfExportService } from '../../services/export/PdfExportService';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../../theme/ThemeTokens';
 import { DateUtils } from '../../utils/DateUtils';
 
 interface BookJournalItem {
@@ -94,8 +96,12 @@ export struct bookJournalPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .padding({ top: this.getUIContext().px2vp(AppStorage.get('topH')) })
+  }
+
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
   }
 
   @Builder
@@ -103,7 +109,7 @@ export struct bookJournalPage {
     Row() {
       Text('‹')
         .fontSize(32)
-        .fontColor('#2C2825')
+        .fontColor(this.getPalette().textPrimary)
         .width(44)
         .height(44)
         .textAlign(TextAlign.Center)
@@ -114,19 +120,19 @@ export struct bookJournalPage {
         Text(this.book === undefined ? '书籍日记本' : this.book.name)
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(this.book === undefined ? '阅读旅程' : this.getBookSubtitle())
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
       Text('编辑')
         .fontSize(13)
-        .fontColor('#C2865E')
+        .fontColor(this.getPalette().primary)
         .padding({ left: 10, right: 10 })
         .height(32)
         .textAlign(TextAlign.Center)
@@ -155,31 +161,31 @@ export struct bookJournalPage {
         .margin({ right: 8 })
       Text('共 ' + this.entries.length + ' 条记录 · 配咖啡 ' + this.coffeeCount + ' 杯 · ' + this.totalPages + ' 页')
         .fontSize(13)
-        .fontColor('#7D7872')
+        .fontColor(this.getPalette().textSecondary)
     }
     .width('100%')
     .height(44)
     .padding({ left: 14, right: 14 })
     .margin({ top: 18 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.getPalette().cardBg)
     .borderRadius(14)
     Text(this.coffeeSummary.text)
       .fontSize(13)
-      .fontColor(this.coffeeSummary.hasData ? '#2C2825' : '#7D7872')
+      .fontColor(this.coffeeSummary.hasData ? 'this.getPalette().textPrimary' : 'this.getPalette().textSecondary')
       .lineHeight(20)
       .width('100%')
       .padding({ left: 14, right: 14, top: 12, bottom: 12 })
       .margin({ top: 10 })
-      .backgroundColor('#FFFFFF')
+      .backgroundColor(this.getPalette().cardBg)
       .borderRadius(14)
     Text('查看读完仪式')
       .fontSize(14)
       .fontWeight(FontWeight.Medium)
-      .fontColor('#FFFFFF')
+      .fontColor('this.getPalette().cardBg')
       .width('100%')
       .height(42)
       .textAlign(TextAlign.Center)
-      .backgroundColor('#C2865E')
+      .backgroundColor(this.getPalette().primary)
       .borderRadius(21)
       .margin({ top: 10, bottom: 20 })
       .onClick(() => {
@@ -196,7 +202,7 @@ export struct bookJournalPage {
             Circle()
               .width(10)
               .height(10)
-              .fill('#C2865E')
+              .fill('this.getPalette().primary')
             Row()
               .width(2)
               .height(138)
@@ -242,7 +248,7 @@ export struct bookJournalPage {
         .width('100%')
         Text(item.pages)
           .fontSize(12)
-          .fontColor('#A8A39C')
+          .fontColor(this.getPalette().textTertiary)
           .margin({ top: 6 })
         Text(item.content)
           .fontSize(16)
@@ -415,7 +421,7 @@ export struct bookJournalPage {
             .layoutWeight(1)
             .height(42)
             .textAlign(TextAlign.Center)
-            .backgroundColor('#F1EEE8')
+            .backgroundColor('this.getPalette().inputBg')
             .borderRadius(21)
             .onClick(onCancel)
           Text(dangerText)

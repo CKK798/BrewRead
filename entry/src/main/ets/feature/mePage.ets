@@ -4,6 +4,8 @@ import { getMoodColor, getMoodText, ReadingEntryEntity, ReadingMood } from '../m
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
+import { ThemePalette } from '../theme/ThemeTokens';
 
 interface MoodStatItem {
   name: string
@@ -76,6 +78,10 @@ export struct mePage {
     await this.loadStatistics()
   }
 
+  getPalette(): ThemePalette {
+    return ThemePreferenceService.getCurrentPalette()
+  }
+
   build() {
     Column() {
       Scroll() {
@@ -101,7 +107,7 @@ export struct mePage {
       .height('100%')
       .scrollBar(BarState.Off)
     }
-    .backgroundColor('#F6F4F0')
+    .backgroundColor(this.getPalette().pageBg)
     .width('100%')
     .height('100%')
   }
@@ -112,20 +118,20 @@ export struct mePage {
       Text('啡')
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#FFFFFF')
+        .fontColor(this.getPalette().cardBg)
         .width(58)
         .height(58)
         .textAlign(TextAlign.Center)
-        .backgroundColor('#C2865E')
+        .backgroundColor(this.getPalette().primary)
         .borderRadius(29)
       Column() {
         Text('我的啡阅')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#2C2825')
+          .fontColor(this.getPalette().textPrimary)
         Text('在阅读里，慢慢看见自己')
           .fontSize(13)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 6 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -240,13 +246,13 @@ export struct mePage {
               .fontColor('#7D7872')
               .width(42)
             Stack({ alignContent: Alignment.Start }) {
-              Row().width('100%').height(8).backgroundColor('#F1EEE8').borderRadius(4)
+              Row().width('100%').height(8).backgroundColor(this.getPalette().inputBg).borderRadius(4)
               Row().width(item.percent + '%').height(8).backgroundColor(item.color).borderRadius(4)
             }
             .layoutWeight(1)
             Text(item.percent + '%')
               .fontSize(12)
-              .fontColor('#A8A39C')
+              .fontColor(this.getPalette().textTertiary)
               .width(38)
               .textAlign(TextAlign.End)
           }

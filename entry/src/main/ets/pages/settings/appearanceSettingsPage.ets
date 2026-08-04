@@ -2,7 +2,7 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { ThemeMode } from '../../models/AppSettingModel';
 import { PAGE_PATH } from '../../pagePath';
 import { AppSettingRepository } from '../../services/repository/AppSettingRepository';
-import { ThemePalette } from '../../theme/ThemeTokens';
+import { BrewTheme, ThemePalette } from '../../theme/ThemeTokens';
 import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 
 interface ThemeOptionItem {
@@ -82,7 +82,7 @@ export struct appearanceSettingsPage {
           .fontColor(this.getPalette().textPrimary)
         Text('选择你喜欢的啡阅主题')
           .fontSize(13)
-          .fontColor('this.getPalette().textSecondary')
+          .fontColor(this.getPalette().textSecondary)
           .margin({ top: 5 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -102,7 +102,7 @@ export struct appearanceSettingsPage {
             Text(item.title)
               .fontSize(17)
               .fontWeight(FontWeight.Medium)
-              .fontColor('this.getPalette().textPrimary')
+              .fontColor(this.getPalette().textPrimary)
             Text(item.desc)
               .fontSize(12)
               .fontColor('#7D7872')
@@ -159,12 +159,9 @@ export struct appearanceSettingsPage {
 
   getPalette(): ThemePalette {
     if (this.renderMode === ThemeMode.DARK) {
-      return ThemePreferenceService.getCurrentPalette()
+      return BrewTheme.dark
     }
-    if (this.renderMode === ThemeMode.LIGHT) {
-      return ThemePreferenceService.getCurrentPalette()
-    }
-    return ThemePreferenceService.getCurrentPalette()
+    return BrewTheme.light
   }
 
   /**
