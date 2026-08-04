@@ -70,8 +70,9 @@ export struct mePage {
   private menus: MenuItem[] = [
     { title: '我的金句', desc: '回看那些特别想留下的话', icon: '★' },
     { title: '导出管理', desc: '查看与分享已生成的 PDF', icon: '📄' },
-    { title: '外观设置', desc: '浅色、深色或跟随系统', icon: '◐' },
-    { title: '备份与恢复', desc: '本地数据导出与导入', icon: '↻' }
+
+    // { title: '外观设置', desc: '浅色、深色或跟随系统', icon: '◐' },
+    // { title: '备份与恢复', desc: '本地数据导出与导入', icon: '↻' }
   ]
 
   async aboutToAppear() {
@@ -137,6 +138,17 @@ export struct mePage {
       .alignItems(HorizontalAlign.Start)
       .margin({ left: 14 })
       .layoutWeight(1)
+      Text('⚙')
+        .fontSize(20)
+        .fontColor(this.getPalette().textSecondary)
+        .width(42)
+        .height(42)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.getPalette().cardBg)
+        .borderRadius(21)
+        .onClick(() => {
+          this.openSettingsPage()
+        })
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
@@ -413,8 +425,8 @@ export struct mePage {
    * 打开菜单对应页面
    *
    * 多行说明：
-   * 1. 当前只有“导出管理”已经实现真实页面，因此只对该菜单执行跳转。
-   * 2. 外观设置、备份与恢复先保留静态入口，后续页面实现后再补充对应路由。
+   * 1. “我的金句”和“导出管理”已经实现真实页面，因此点击后执行对应跳转。
+   * 2. 外观设置、备份与恢复入口暂时下线，避免用户进入尚未完成的功能。
    * 3. 菜单跳转统一在这里收敛，避免后续新增设置项时散落多个 onClick 分支。
    */
   openMenuPage(item: MenuItem) {
@@ -422,11 +434,11 @@ export struct mePage {
       HMRouterMgr.push({ pageUrl: PAGE_PATH.HIGHLIGHT_ENTRIES_PAGE })
     } else if (item.title === '导出管理') {
       HMRouterMgr.push({ pageUrl: PAGE_PATH.EXPORT_MANAGER_PAGE })
-    } else if (item.title === '外观设置') {
-      HMRouterMgr.push({ pageUrl: PAGE_PATH.SETTINGS_PAGE })
-    } else if (item.title === '备份与恢复') {
-      HMRouterMgr.push({ pageUrl: PAGE_PATH.BACKUP_PAGE })
     }
+  }
+
+  openSettingsPage() {
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.SETTINGS_PAGE })
   }
 
   /**
