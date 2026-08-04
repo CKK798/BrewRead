@@ -11,6 +11,13 @@ export enum PaperSize {
   A5 = 'A5'
 }
 
+export enum PdfTemplate {
+  MINIMALIST = '极简留白杂志风',
+  BUNKO = '日式文库本风',
+  LETTERPRESS = '复古信笺风',
+  ARTBOOK = '现代画册风'
+}
+
 export interface ExportRecordEntity {
   id: string
   bookId: string

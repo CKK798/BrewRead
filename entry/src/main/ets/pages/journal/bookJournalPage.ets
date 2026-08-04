@@ -1,5 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity } from '../../models/BookModel';
+import { PaperSize, PdfTemplate } from '../../models/ExportRecordModel';
 import { getMoodColor, getMoodText, ReadingEntryEntity } from '../../models/ReadingEntryModel';
 import { PAGE_PATH } from '../../pagePath';
 import { PdfExportResult, PdfExportService } from '../../services/export/PdfExportService';
@@ -50,6 +51,9 @@ export struct bookJournalPage {
   @Local pendingDeleteEntryId: string = ''
   @Local exportMessage: string = ''
   @Local exporting: boolean = false
+  @Local selectedPaperSize: PaperSize = PaperSize.A4
+  @Local selectedTemplate: PdfTemplate = PdfTemplate.MINIMALIST
+  @Local showTemplatePicker: boolean = false
   private bookId: string = ''
 
   async aboutToAppear() {
@@ -92,6 +96,9 @@ export struct bookJournalPage {
       }
       if (this.showDeleteEntryConfirm) {
         this.DeleteEntryConfirmPanel()
+      }
+      if (this.showTemplatePicker) {
+        this.TemplatePickerPanel()
       }
     }
     .width('100%')
@@ -356,8 +363,10 @@ export struct bookJournalPage {
   @Builder
   ExportButton() {
     Column() {
+      this.PaperSizeSelector()
+      this.TemplateSelector()
       Row() {
-        Text(this.exporting ? '正在导出...' : '📄 导出为 PDF')
+        Text(this.exporting ? '正在导出...' : '📄 生成 ' + this.selectedPaperSize + ' · ' + this.selectedTemplate)
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor('#FFFFFF')
@@ -367,9 +376,15 @@ export struct bookJournalPage {
       .justifyContent(FlexAlign.Center)
       .backgroundColor(this.exporting ? '#80C2865E' : '#C2865E')
       .borderRadius(25)
+      .margin({ top: 12 })
       .onClick(() => {
         this.exportCurrentBook()
       })
+      Text(this.getPaperSizeHint())
+        .fontSize(12)
+        .fontColor('#A8A39C')
+        .lineHeight(18)
+        .margin({ top: 8 })
       if (this.exportMessage.length > 0) {
         Text(this.exportMessage)
           .fontSize(12)
@@ -379,6 +394,181 @@ export struct bookJournalPage {
     }
     .width('100%')
     .margin({ top: 8 })
+  }
+
+  @Builder
+  PaperSizeSelector() {
+    Column() {
+      Row() {
+        Text('纸张大小')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#2C2825')
+        Blank()
+        Text(this.selectedPaperSize)
+          .fontSize(12)
+          .fontColor('#7D7872')
+      }
+      .width('100%')
+      .margin({ bottom: 10 })
+      Row() {
+        this.PaperSizeOption(PaperSize.A4, 'A4', '适合打印收藏')
+        this.PaperSizeOption(PaperSize.A5, 'A5', '更像阅读手账')
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding(14)
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+  }
+
+  @Builder
+  PaperSizeOption(size: PaperSize, title: string, desc: string) {
+    Column() {
+      Text(title)
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.selectedPaperSize === size ? '#C2865E' : '#2C2825')
+      Text(desc)
+        .fontSize(11)
+        .fontColor('#A8A39C')
+        .margin({ top: 4 })
+    }
+    .layoutWeight(1)
+    .height(58)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(this.selectedPaperSize === size ? '#1AC2865E' : '#F1EEE8')
+    .border({ width: this.selectedPaperSize === size ? 1 : 0, color: '#C2865E' })
+    .borderRadius(14)
+    .margin({ right: size === PaperSize.A4 ? 10 : 0 })
+    .onClick(() => {
+      if (!this.exporting) {
+        this.selectedPaperSize = size
+        this.exportMessage = ''
+      }
+    })
+  }
+
+  @Builder
+  TemplateSelector() {
+    Row() {
+      Text(this.getTemplateIcon(this.selectedTemplate))
+        .fontSize(20)
+        .width(42)
+        .height(42)
+        .textAlign(TextAlign.Center)
+        .backgroundColor('#F1EEE8')
+        .borderRadius(21)
+      Column() {
+        Text('排版模板')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#2C2825')
+        Text(this.selectedTemplate + ' · ' + this.getTemplateDesc(this.selectedTemplate))
+          .fontSize(12)
+          .fontColor('#7D7872')
+          .margin({ top: 5 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      .margin({ left: 12 })
+      Text('更换 ›')
+        .fontSize(13)
+        .fontColor('#C2865E')
+    }
+    .width('100%')
+    .padding(14)
+    .margin({ top: 12 })
+    .backgroundColor('#FFFFFF')
+    .borderRadius(16)
+    .onClick(() => {
+      if (!this.exporting) {
+        this.showTemplatePicker = true
+      }
+    })
+  }
+
+  @Builder
+  TemplatePickerPanel() {
+    Column() {
+      Blank()
+      Column() {
+        Row() {
+          Column() {
+            Text('选择排版模板')
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#2C2825')
+            Text('不同模板会影响 PDF 留白、分页和阅读氛围')
+              .fontSize(13)
+              .fontColor('#7D7872')
+              .margin({ top: 6 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          Text('取消')
+            .fontSize(14)
+            .fontColor('#7D7872')
+            .onClick(() => {
+              this.showTemplatePicker = false
+            })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        this.TemplatePickerOption(PdfTemplate.MINIMALIST, '📖', '极简留白杂志风', '干净、透气，日常通用，打印首选')
+        this.TemplatePickerOption(PdfTemplate.BUNKO, '📚', '日式文库本风', '温润、紧凑，适合日本文学和安静阅读')
+        this.TemplatePickerOption(PdfTemplate.LETTERPRESS, '✉️', '复古信笺风', '泛黄旧纸、活字印刷感，适合古典文学')
+        this.TemplatePickerOption(PdfTemplate.ARTBOOK, '■', '现代画册风', '大字、强对比、视觉冲击，适合现代文学')
+      }
+      .width('100%')
+      .padding(20)
+      .backgroundColor('#FFFFFF')
+      .borderRadius({ topLeft: 22, topRight: 22 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#66000000')
+  }
+
+  @Builder
+  TemplatePickerOption(template: PdfTemplate, icon: string, title: string, desc: string) {
+    Row() {
+      Text(icon)
+        .fontSize(22)
+        .width(44)
+        .height(44)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.selectedTemplate === template ? '#1AC2865E' : '#F1EEE8')
+        .borderRadius(22)
+      Column() {
+        Text(title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.selectedTemplate === template ? '#C2865E' : '#2C2825')
+        Text(desc)
+          .fontSize(12)
+          .fontColor('#7D7872')
+          .lineHeight(18)
+          .margin({ top: 5 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      .margin({ left: 12 })
+      Text(this.selectedTemplate === template ? '✓' : '')
+        .fontSize(18)
+        .fontColor('#C2865E')
+        .width(24)
+        .textAlign(TextAlign.End)
+    }
+    .width('100%')
+    .padding({ top: 14, bottom: 14 })
+    .border({ width: { bottom: 0.5 }, color: '#12000000' })
+    .onClick(() => {
+      this.selectedTemplate = template
+      this.exportMessage = ''
+      this.showTemplatePicker = false
+    })
   }
 
   @Builder
@@ -467,9 +657,51 @@ export struct bookJournalPage {
     }
     this.exporting = true
     this.exportMessage = ''
-    const result: PdfExportResult = await PdfExportService.exportBookJournal(this.book)
-    this.exportMessage = result.message
+    const paperSize: PaperSize = this.selectedPaperSize
+    const template: PdfTemplate = this.selectedTemplate
+    const result: PdfExportResult = await PdfExportService.exportBookJournal(this.book, paperSize, template)
     this.exporting = false
+    if (result.success && result.record !== undefined) {
+      this.exportMessage = paperSize + ' · ' + template + ' PDF 已生成，正在打开预览...'
+      AppStorage.setOrCreate('previewPdfFileName', result.record.fileName)
+      AppStorage.setOrCreate('previewPdfFilePath', result.record.filePath)
+      HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_PREVIEW_PAGE })
+      return
+    }
+    this.exportMessage = result.message
+  }
+
+  getPaperSizeHint(): string {
+    if (this.selectedPaperSize === PaperSize.A5) {
+      return 'A5 页面更小，长感悟会自动换行并分页，适合手账式阅读。'
+    }
+    return 'A4 页面空间更充足，适合打印、归档或阅读记录较多的书。'
+  }
+
+  getTemplateIcon(template: PdfTemplate): string {
+    if (template === PdfTemplate.BUNKO) {
+      return '📚'
+    }
+    if (template === PdfTemplate.LETTERPRESS) {
+      return '✉️'
+    }
+    if (template === PdfTemplate.ARTBOOK) {
+      return '■'
+    }
+    return '📖'
+  }
+
+  getTemplateDesc(template: PdfTemplate): string {
+    if (template === PdfTemplate.BUNKO) {
+      return '温润 · 文库'
+    }
+    if (template === PdfTemplate.LETTERPRESS) {
+      return '旧纸 · 信笺'
+    }
+    if (template === PdfTemplate.ARTBOOK) {
+      return '大字 · 画册'
+    }
+    return '留白 · 杂志'
   }
 
   /**

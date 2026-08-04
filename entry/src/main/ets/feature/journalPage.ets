@@ -10,6 +10,7 @@ import { DateUtils } from '../utils/DateUtils';
 
 interface JournalEntryItem {
   id: string
+  bookId: string
   date: string
   bookName: string
   mood: string
@@ -17,6 +18,12 @@ interface JournalEntryItem {
   coffee: string
   pages: string
   content: string
+}
+
+interface ExportBookOption {
+  bookId: string
+  bookName: string
+  entryCount: number
 }
 
 /**
@@ -35,35 +42,44 @@ export struct journalPage {
   @Local loadError: string = ''
   @Local totalCoffeeCount: number = 0
   @Local totalReadPages: number = 0
+  @Local showExportBookSelector: boolean = false
+  @Local exportBooks: ExportBookOption[] = []
 
   async aboutToAppear() {
     await this.loadEntries()
   }
 
   build() {
-    Column() {
-      Scroll() {
-        Column() {
-          this.Header()
-          this.SummaryBar()
-          if (this.loading) {
-            this.LoadingState()
-          } else if (this.loadError.length > 0) {
-            this.ErrorState()
-          } else if (this.entries.length === 0) {
-            this.EmptyState()
-          } else {
-            this.Timeline()
-            this.ExportButton()
+    Stack() {
+      Column() {
+        Scroll() {
+          Column() {
+            this.Header()
+            this.SummaryBar()
+            if (this.loading) {
+              this.LoadingState()
+            } else if (this.loadError.length > 0) {
+              this.ErrorState()
+            } else if (this.entries.length === 0) {
+              this.EmptyState()
+            } else {
+              this.Timeline()
+              this.ExportButton()
+            }
           }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 20, bottom: 22 })
         }
+        .align(Alignment.Top)
         .width('100%')
-        .padding({ left: 16, right: 16, top: 20, bottom: 22 })
+        .height('100%')
+        .scrollBar(BarState.Off)
       }
-      .align(Alignment.Top)
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Off)
+      if (this.showExportBookSelector) {
+        this.ExportBookSelectorPanel()
+      }
     }
     .backgroundColor(this.getPalette().pageBg)
     .width('100%')
@@ -286,7 +302,7 @@ export struct journalPage {
       Text('📄')
         .fontSize(17)
         .margin({ right: 8 })
-      Text('导出为 PDF')
+      Text('选择书籍导出 PDF')
         .fontSize(16)
         .fontWeight(FontWeight.Medium)
         .fontColor('#FFFFFF')
@@ -298,6 +314,74 @@ export struct journalPage {
     .backgroundColor('#C2865E')
     .borderRadius(25)
     .shadow({ radius: 10, color: '#1FC2865E', offsetX: 0, offsetY: 4 })
+    .onClick(() => {
+      this.prepareExportFromJournal()
+    })
+  }
+
+  @Builder
+  ExportBookSelectorPanel() {
+    Column() {
+      Blank()
+      Column() {
+        Row() {
+          Column() {
+            Text('选择要导出的书')
+              .fontSize(20)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#2C2825')
+            Text('PDF 会按单本书的阅读日记本生成')
+              .fontSize(13)
+              .fontColor('#7D7872')
+              .margin({ top: 6 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          Text('取消')
+            .fontSize(14)
+            .fontColor('#7D7872')
+            .onClick(() => {
+              this.showExportBookSelector = false
+            })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        ForEach(this.exportBooks, (item: ExportBookOption) => {
+          Row() {
+            Column() {
+              Text(item.bookName)
+                .fontSize(16)
+                .fontWeight(FontWeight.Medium)
+                .fontColor('#2C2825')
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(item.entryCount + ' 条阅读记录')
+                .fontSize(12)
+                .fontColor('#A8A39C')
+                .margin({ top: 5 })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Text('›')
+              .fontSize(22)
+              .fontColor('#A8A39C')
+          }
+          .width('100%')
+          .padding({ top: 14, bottom: 14 })
+          .border({ width: { bottom: 0.5 }, color: '#12000000' })
+          .onClick(() => {
+            this.openBookJournalForExport(item.bookId)
+          })
+        }, (item: ExportBookOption) => item.bookId)
+      }
+      .width('100%')
+      .padding(20)
+      .backgroundColor('#FFFFFF')
+      .borderRadius({ topLeft: 22, topRight: 22 })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#66000000')
   }
 
   /**
@@ -326,6 +410,7 @@ export struct journalPage {
         nextEntries.push(this.toJournalEntryItem(entry, book))
       }
       this.entries = nextEntries
+      this.exportBooks = this.buildExportBookOptions(nextEntries)
       this.totalCoffeeCount = coffeeCount
       this.totalReadPages = readPages
     } catch (err) {
@@ -337,6 +422,7 @@ export struct journalPage {
   toJournalEntryItem(entry: ReadingEntryEntity, book?: BookEntity): JournalEntryItem {
     return {
       id: entry.id,
+      bookId: entry.bookId,
       date: DateUtils.formatMonthDay(entry.date) + ' · ' + DateUtils.getWeekdayText(entry.date),
       bookName: book === undefined ? '已删除书籍' : book.name,
       mood: getMoodText(entry.mood),
@@ -362,6 +448,40 @@ export struct journalPage {
       return entry.pageTo - entry.pageFrom + 1
     }
     return 0
+  }
+
+  buildExportBookOptions(entries: JournalEntryItem[]): ExportBookOption[] {
+    const options: ExportBookOption[] = []
+    entries.forEach((entry: JournalEntryItem) => {
+      if (entry.bookName === '已删除书籍') {
+        return
+      }
+      const exists: ExportBookOption | undefined = options.find((item: ExportBookOption) => item.bookId === entry.bookId)
+      if (exists === undefined) {
+        options.push({ bookId: entry.bookId, bookName: entry.bookName, entryCount: 1 })
+      } else {
+        exists.entryCount++
+      }
+    })
+    return options
+  }
+
+  prepareExportFromJournal() {
+    if (this.exportBooks.length === 0) {
+      this.loadError = '没有可导出的书籍记录'
+      return
+    }
+    if (this.exportBooks.length === 1) {
+      this.openBookJournalForExport(this.exportBooks[0].bookId)
+      return
+    }
+    this.showExportBookSelector = true
+  }
+
+  openBookJournalForExport(bookId: string) {
+    this.showExportBookSelector = false
+    AppStorage.setOrCreate('selectedBookId', bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_JOURNAL_PAGE })
   }
 
   /**

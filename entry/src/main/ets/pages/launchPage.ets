@@ -3,49 +3,71 @@
  */
 import { HMDefaultGlobalAnimator, HMNavigation, HMRouterMgr } from '@hadss/hmrouter';
 import { AttributeUpdater } from '@kit.ArkUI';
-import { PAGE_PATH } from '../pagePath';
 import { common } from '@kit.AbilityKit';
+import { PAGE_PATH } from '../pagePath';
 
 @Entry
 @ComponentV2
 export struct launchPage {
   modifier = new MyModifier()
   context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-
-  async aboutToAppear() {
-    setTimeout(()=>{
-      HMRouterMgr.push({pageUrl:PAGE_PATH.HOME_PAGE})
-    },1000)
-  }
+  private videoController: VideoController = new VideoController()
+  @Local hasEnteredHome: boolean = false
 
   build() {
     Column() {
       HMNavigation({
-        navigationId: PAGE_PATH.MAIN_PAGE, //"配置根组件在导航栏的唯一标识 id"
-        homePageUrl: PAGE_PATH.LAUNCH_PAGE, //"首页的路由名"
+        navigationId: PAGE_PATH.MAIN_PAGE,
+        homePageUrl: PAGE_PATH.LAUNCH_PAGE,
         options: {
-          standardAnimator: HMDefaultGlobalAnimator.STANDARD_ANIMATOR, //标准动画
-          dialogAnimator: HMDefaultGlobalAnimator.DIALOG_ANIMATOR, //弹窗动画
-          modifier: this.modifier, //在全局修改Navigation的对象实例的属性
+          standardAnimator: HMDefaultGlobalAnimator.STANDARD_ANIMATOR,
+          dialogAnimator: HMDefaultGlobalAnimator.DIALOG_ANIMATOR,
+          modifier: this.modifier,
         }
       }) {
-        Column(){
-          Text('启动页')
-            .fontSize(20)
+        Column() {
+          Video({
+            src: $r('app.media.launch_video'),
+            controller: this.videoController
+          })
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Contain)
+            .controls(false)
+            .autoPlay(true)
+            .loop(false)
+            .muted(true)
+            .backgroundColor('#FFFFFF')
+            .onFinish(() => {
+              this.enterHomePage()
+            })
+            .onError(() => {
+              this.enterHomePage()
+            })
         }
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
         .width('100%')
         .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor('#FFFFFF')
       }
     }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#FFFFFF')
+  }
+
+  enterHomePage() {
+    if (this.hasEnteredHome) {
+      return
+    }
+    this.hasEnteredHome = true
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.HOME_PAGE })
   }
 }
 
 class MyModifier extends AttributeUpdater<NavigationAttribute> {
-  // 重写原来的方法
   initializeModifier(instance: NavigationAttribute): void {
-    // instance就是Navigation实例对象
     instance.mode(NavigationMode.Stack)
     instance.titleMode(NavigationTitleMode.Mini)
     instance.hideTitleBar(true)

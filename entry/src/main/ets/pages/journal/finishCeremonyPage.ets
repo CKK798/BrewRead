@@ -185,11 +185,24 @@ export struct finishCeremonyPage {
         .fontSize(18)
         .fontWeight(FontWeight.Medium)
         .fontColor('#2C2825')
-      Text('回到书籍日记本，点击“导出为 PDF”，把这段阅读旅程保存成册。')
+      Text('去书籍日记本选择 A4 / A5 纸张，生成后会自动进入 PDF 预览页。')
         .fontSize(13)
         .fontColor('#7D7872')
         .lineHeight(21)
         .margin({ top: 8 })
+      Text('选择纸张并导出')
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#FFFFFF')
+        .width('100%')
+        .height(44)
+        .textAlign(TextAlign.Center)
+        .backgroundColor('#C2865E')
+        .borderRadius(22)
+        .margin({ top: 16 })
+        .onClick(() => {
+          this.openBookJournalForExport()
+        })
     }
     .width('100%')
     .padding(18)
@@ -324,5 +337,14 @@ export struct finishCeremonyPage {
       }
     })
     return longest.length === 0 ? '还没有留下足够长的感悟。' : longest
+  }
+
+  openBookJournalForExport() {
+    if (this.bookId.length === 0) {
+      this.loadError = '没有找到要导出的书籍'
+      return
+    }
+    AppStorage.setOrCreate('selectedBookId', this.bookId)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_JOURNAL_PAGE })
   }
 }
