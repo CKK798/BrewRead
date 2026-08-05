@@ -1,11 +1,13 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity } from '../../models/BookModel';
-import { PaperSize, PdfTemplate } from '../../models/ExportRecordModel';
+import { ExportRecordEntity, PaperSize, PdfTemplate } from '../../models/ExportRecordModel';
+import { SettingKey } from '../../models/AppSettingModel';
 import { getMoodColor, getMoodText, ReadingEntryEntity } from '../../models/ReadingEntryModel';
 import { PAGE_PATH } from '../../pagePath';
 import { PdfExportResult, PdfExportService } from '../../services/export/PdfExportService';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
+import { AppSettingRepository } from '../../services/repository/AppSettingRepository';
 import { DataRefreshService } from '../../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../../theme/ThemeTokens';
@@ -24,6 +26,12 @@ interface BookJournalItem {
 interface BookCoffeeSummary {
   hasData: boolean
   text: string
+}
+
+interface ExportPreferences {
+  paperSize: PaperSize
+  template: PdfTemplate
+  updatedAt: number
 }
 
 /**
@@ -55,11 +63,27 @@ export struct bookJournalPage {
   @Local selectedPaperSize: PaperSize = PaperSize.A4
   @Local selectedTemplate: PdfTemplate = PdfTemplate.MINIMALIST
   @Local showTemplatePicker: boolean = false
+  @Local showExportOverlay: boolean = false
+  @Local showExportSuccess: boolean = false
+  @Local exportProgress: number = 0
+  @Local exportSubtitle: string = '正在收集你的阅读时光...'
+  @Local exportStage: string = 'idle'
+  @Local generatedRecord?: ExportRecordEntity = undefined
   private bookId: string = ''
+  private progressTimer: number | undefined = undefined
+  private subtitleTimer: number | undefined = undefined
+  private successTimer: number | undefined = undefined
+  private readonly templateOptions: PdfTemplate[] = [
+    PdfTemplate.MINIMALIST,
+    PdfTemplate.LETTERPRESS,
+    PdfTemplate.BUNKO,
+    PdfTemplate.ARTBOOK
+  ]
   private readonly refreshOwnerId: string = 'bookJournalPage'
 
   async aboutToAppear() {
     this.bookId = AppStorage.get<string>('selectedBookId') ?? ''
+    await this.loadExportPreferences()
     DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
       this.loadJournal()
     })
@@ -72,6 +96,7 @@ export struct bookJournalPage {
   aboutToDisappear() {
     DataRefreshService.unregisterBookListener(this.refreshOwnerId)
     DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
+    this.clearExportTimers()
   }
 
   build() {
@@ -110,8 +135,8 @@ export struct bookJournalPage {
       if (this.showDeleteEntryConfirm) {
         this.DeleteEntryConfirmPanel()
       }
-      if (this.showTemplatePicker) {
-        this.TemplatePickerPanel()
+      if (this.showExportOverlay) {
+        this.ExportProgressPanel()
       }
     }
     .width('100%')
@@ -376,10 +401,32 @@ export struct bookJournalPage {
   @Builder
   ExportButton() {
     Column() {
+      Row() {
+        Column() {
+          Text('导出阅读手账')
+            .fontSize(18)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.getPalette().textPrimary)
+          Text('把这段阅读旅程装订成一份 PDF')
+            .fontSize(12)
+            .fontColor(this.getPalette().textSecondary)
+            .margin({ top: 4 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        Text(this.selectedPaperSize + ' · ' + this.getTemplateShortName(this.selectedTemplate))
+          .fontSize(11)
+          .fontColor(this.getPalette().primaryDeep)
+          .padding({ left: 9, right: 9, top: 6, bottom: 6 })
+          .backgroundColor('#1AC2865E')
+          .borderRadius(14)
+      }
+      .width('100%')
+      .margin({ bottom: 14 })
       this.PaperSizeSelector()
       this.TemplateSelector()
       Row() {
-        Text(this.exporting ? '正在导出...' : '📄 生成 ' + this.selectedPaperSize + ' · ' + this.selectedTemplate)
+        Text('📄 生成阅读手账')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
           .fontColor('#FFFFFF')
@@ -387,26 +434,30 @@ export struct bookJournalPage {
       .width('100%')
       .height(50)
       .justifyContent(FlexAlign.Center)
-      .backgroundColor(this.exporting ? '#80C2865E' : '#C2865E')
+      .backgroundColor(this.exporting ? '#80C2865E' : this.getPalette().primary)
       .borderRadius(25)
-      .margin({ top: 12 })
+      .margin({ top: 14 })
       .onClick(() => {
         this.exportCurrentBook()
       })
       Text(this.getPaperSizeHint())
         .fontSize(12)
-        .fontColor('#A8A39C')
+        .fontColor(this.getPalette().textTertiary)
         .lineHeight(18)
         .margin({ top: 8 })
       if (this.exportMessage.length > 0) {
         Text(this.exportMessage)
           .fontSize(12)
-          .fontColor('#7D7872')
+          .fontColor(this.getPalette().textSecondary)
+          .textAlign(TextAlign.Center)
           .margin({ top: 8 })
       }
     }
     .width('100%')
-    .margin({ top: 8 })
+    .padding(16)
+    .margin({ top: 16 })
+    .backgroundColor(this.getPalette().cardBg)
+    .borderRadius(18)
   }
 
   @Builder
@@ -459,129 +510,181 @@ export struct bookJournalPage {
       if (!this.exporting) {
         this.selectedPaperSize = size
         this.exportMessage = ''
+        this.saveExportPreferences()
       }
     })
   }
 
   @Builder
   TemplateSelector() {
-    Row() {
-      Text(this.getTemplateIcon(this.selectedTemplate))
-        .fontSize(20)
-        .width(42)
-        .height(42)
-        .textAlign(TextAlign.Center)
-        .backgroundColor('#F1EEE8')
-        .borderRadius(21)
-      Column() {
+    Column() {
+      Row() {
         Text('排版模板')
           .fontSize(14)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#2C2825')
-        Text(this.selectedTemplate + ' · ' + this.getTemplateDesc(this.selectedTemplate))
-          .fontSize(12)
-          .fontColor('#7D7872')
-          .margin({ top: 5 })
+          .fontColor(this.getPalette().textPrimary)
+        Blank()
+        Text('选择一种阅读氛围')
+          .fontSize(11)
+          .fontColor(this.getPalette().textTertiary)
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      .margin({ left: 12 })
-      Text('更换 ›')
-        .fontSize(13)
-        .fontColor('#C2865E')
+      .width('100%')
+      .margin({ bottom: 10 })
+      Row() {
+        Column() {
+          this.TemplateCard(this.templateOptions[0])
+          this.TemplateCard(this.templateOptions[1])
+        }
+        .layoutWeight(1)
+        Column() {
+          this.TemplateCard(this.templateOptions[2])
+          this.TemplateCard(this.templateOptions[3])
+        }
+        .layoutWeight(1)
+        .margin({ left: 10 })
+      }
+      .width('100%')
     }
     .width('100%')
     .padding(14)
     .margin({ top: 12 })
-    .backgroundColor('#FFFFFF')
+    .backgroundColor(this.getPalette().inputBg)
     .borderRadius(16)
+  }
+
+  @Builder
+  TemplateCard(template: PdfTemplate) {
+    Column() {
+      Stack({ alignContent: Alignment.TopEnd }) {
+        Column() {
+          Row() {
+            Text(this.getTemplateIcon(template))
+              .fontSize(17)
+              .width(30)
+              .height(30)
+              .textAlign(TextAlign.Center)
+              .backgroundColor(this.selectedTemplate === template ? '#26C2865E' : this.getPalette().cardBg)
+              .borderRadius(15)
+            Column() {
+              Text(this.getTemplateShortName(template))
+                .fontSize(13)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(this.selectedTemplate === template ? this.getPalette().primaryDeep : this.getPalette().textPrimary)
+              Text(this.getTemplateDesc(template))
+                .fontSize(10)
+                .fontColor(this.getPalette().textTertiary)
+                .margin({ top: 3 })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            .margin({ left: 7 })
+          }
+          .width('100%')
+          Text(this.getTemplatePreview(template))
+            .fontSize(10)
+            .fontColor(this.selectedTemplate === template ? this.getPalette().primaryDeep : this.getPalette().textTertiary)
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        if (this.selectedTemplate === template) {
+          Text('✓')
+            .fontSize(14)
+            .fontColor(this.getPalette().primary)
+        }
+      }
+      .width('100%')
+    }
+    .layoutWeight(1)
+    .height(92)
+    .padding(10)
+    .margin({ bottom: 10 })
+    .backgroundColor(this.selectedTemplate === template ? '#14C2865E' : this.getPalette().cardBg)
+    .border({ width: this.selectedTemplate === template ? 2 : 1, color: this.selectedTemplate === template ? this.getPalette().primary : this.getPalette().divider })
+    .borderRadius(12)
     .onClick(() => {
       if (!this.exporting) {
-        this.showTemplatePicker = true
+        this.selectedTemplate = template
+        this.exportMessage = ''
+        this.saveExportPreferences()
       }
     })
   }
 
   @Builder
-  TemplatePickerPanel() {
+  ExportProgressPanel() {
     Column() {
-      Blank()
-      Column() {
+      if (this.showExportSuccess) {
+        Text('✨')
+          .fontSize(60)
+          .margin({ bottom: 18 })
+        Text('阅读手账已生成')
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#FFFFFF')
+        Text(this.selectedPaperSize + ' · ' + this.getTemplateShortName(this.selectedTemplate))
+          .fontSize(13)
+          .fontColor('#EBD9C8')
+          .margin({ top: 10 })
+        Text('查看阅读手账 →')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#FFFFFF')
+          .width('82%')
+          .height(48)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.getPalette().primary)
+          .borderRadius(24)
+          .margin({ top: 28 })
+          .onClick(() => {
+            this.openGeneratedPreview()
+          })
+      } else {
+        Text('📖')
+          .fontSize(54)
+          .margin({ bottom: 18 })
+        Text('正在装订你的阅读手账')
+          .fontSize(20)
+          .fontWeight(FontWeight.Medium)
+          .fontColor('#FFFFFF')
         Row() {
-          Column() {
-            Text('选择排版模板')
-              .fontSize(20)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#2C2825')
-            Text('不同模板会影响 PDF 留白、分页和阅读氛围')
-              .fontSize(13)
-              .fontColor('#7D7872')
-              .margin({ top: 6 })
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
-          Text('取消')
-            .fontSize(14)
-            .fontColor('#7D7872')
+          Row()
+            .width(this.exportProgress + '%')
+            .height(8)
+            .backgroundColor(this.getPalette().primary)
+            .borderRadius(4)
+        }
+        .width('82%')
+        .height(8)
+        .backgroundColor('#40FFFFFF')
+        .borderRadius(4)
+        .margin({ top: 28 })
+        Text(this.exportProgress.toFixed(0) + '%')
+          .fontSize(12)
+          .fontColor('#EBD9C8')
+          .margin({ top: 8 })
+        Text(this.exportSubtitle)
+          .fontSize(13)
+          .fontColor('#D7D0C8')
+          .textAlign(TextAlign.Center)
+          .margin({ top: 14 })
+        if (this.exportStage === 'timeout') {
+          Text('取消导出')
+            .fontSize(13)
+            .fontColor('#E8B5A8')
+            .margin({ top: 22 })
             .onClick(() => {
-              this.showTemplatePicker = false
+              this.cancelExport()
             })
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-        this.TemplatePickerOption(PdfTemplate.MINIMALIST, '📖', '极简留白杂志风', '干净、透气，日常通用，打印首选')
-        this.TemplatePickerOption(PdfTemplate.BUNKO, '📚', '日式文库本风', '温润、紧凑，适合日本文学和安静阅读')
-        this.TemplatePickerOption(PdfTemplate.LETTERPRESS, '✉️', '复古信笺风', '泛黄旧纸、活字印刷感，适合古典文学')
-        this.TemplatePickerOption(PdfTemplate.ARTBOOK, '■', '现代画册风', '大字、强对比、视觉冲击，适合现代文学')
       }
-      .width('100%')
-      .padding(20)
-      .backgroundColor('#FFFFFF')
-      .borderRadius({ topLeft: 22, topRight: 22 })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#66000000')
-  }
-
-  @Builder
-  TemplatePickerOption(template: PdfTemplate, icon: string, title: string, desc: string) {
-    Row() {
-      Text(icon)
-        .fontSize(22)
-        .width(44)
-        .height(44)
-        .textAlign(TextAlign.Center)
-        .backgroundColor(this.selectedTemplate === template ? '#1AC2865E' : '#F1EEE8')
-        .borderRadius(22)
-      Column() {
-        Text(title)
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.selectedTemplate === template ? '#C2865E' : '#2C2825')
-        Text(desc)
-          .fontSize(12)
-          .fontColor('#7D7872')
-          .lineHeight(18)
-          .margin({ top: 5 })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      .margin({ left: 12 })
-      Text(this.selectedTemplate === template ? '✓' : '')
-        .fontSize(18)
-        .fontColor('#C2865E')
-        .width(24)
-        .textAlign(TextAlign.End)
-    }
-    .width('100%')
-    .padding({ top: 14, bottom: 14 })
-    .border({ width: { bottom: 0.5 }, color: '#12000000' })
-    .onClick(() => {
-      this.selectedTemplate = template
-      this.exportMessage = ''
-      this.showTemplatePicker = false
-    })
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor('#F02C2825')
+    .padding(28)
   }
 
   @Builder
@@ -668,20 +771,114 @@ export struct bookJournalPage {
       this.exportMessage = '书籍未加载，暂不能导出'
       return
     }
+    if (this.entries.length === 0) {
+      this.exportMessage = '这本书还没有可导出的阅读记录'
+      return
+    }
     this.exporting = true
+    this.showExportOverlay = true
+    this.showExportSuccess = false
+    this.exportStage = 'binding'
+    this.exportProgress = 0
+    this.exportSubtitle = '正在收集你的阅读时光...'
     this.exportMessage = ''
+    this.startExportProgress()
+    this.startExportSubtitleRotation()
     const paperSize: PaperSize = this.selectedPaperSize
     const template: PdfTemplate = this.selectedTemplate
     const result: PdfExportResult = await PdfExportService.exportBookJournal(this.book, paperSize, template)
+    this.clearExportTimers()
     this.exporting = false
     if (result.success && result.record !== undefined) {
-      this.exportMessage = paperSize + ' · ' + template + ' PDF 已生成，正在打开预览...'
-      AppStorage.setOrCreate('previewPdfFileName', result.record.fileName)
-      AppStorage.setOrCreate('previewPdfFilePath', result.record.filePath)
-      HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_PREVIEW_PAGE })
+      this.generatedRecord = result.record
+      this.exportProgress = 100
+      this.showExportSuccess = true
+      this.exportStage = 'success'
+      this.successTimer = setTimeout(() => {
+        this.openGeneratedPreview()
+      }, 1500)
       return
     }
+    this.showExportOverlay = false
+    this.exportStage = 'failed'
     this.exportMessage = result.message
+  }
+
+  startExportProgress() {
+    this.progressTimer = setInterval(() => {
+      if (this.exportProgress < 95) {
+        this.exportProgress = Math.min(95, this.exportProgress + 3)
+      }
+    }, 300)
+    setTimeout(() => {
+      if (this.exporting && this.exportProgress < 95) {
+        this.exportStage = 'timeout'
+        this.exportSubtitle = '文件较大，正在耐心排版中...'
+      }
+    }, 30000)
+  }
+
+  startExportSubtitleRotation() {
+    const subtitles: string[] = ['正在收集你的阅读时光...']
+    this.entries.forEach((entry: BookJournalItem, index: number) => {
+      if (subtitles.length < 4 && entry.coffee.length > 0) {
+        subtitles.push('☕ 第 ' + (index + 1) + ' 条记录 — 那天你' + entry.coffee.replace(' · ☕ ', '喝了'))
+      }
+      if (subtitles.length < 5 && entry.mood.length > 0) {
+        subtitles.push('这一页的心情是' + entry.mood)
+      }
+      if (subtitles.length < 6 && entry.pages !== '未填写页码') {
+        subtitles.push('📝 ' + (this.book === undefined ? '这本书' : this.book.name) + ' ' + entry.pages)
+      }
+    })
+    subtitles.push('✨ 快好了，封面上写着你的一句话...')
+    let subtitleIndex: number = 0
+    this.subtitleTimer = setInterval(() => {
+      subtitleIndex = (subtitleIndex + 1) % subtitles.length
+      this.exportSubtitle = subtitles[subtitleIndex]
+    }, 2000)
+  }
+
+  cancelExport() {
+    if (!this.exporting) {
+      this.showExportOverlay = false
+      return
+    }
+    this.clearExportTimers()
+    this.exporting = false
+    this.showExportOverlay = false
+    this.exportStage = 'cancelled'
+    this.exportMessage = '本次导出已取消'
+  }
+
+  clearExportTimers() {
+    if (this.progressTimer !== undefined) {
+      clearInterval(this.progressTimer)
+      this.progressTimer = undefined
+    }
+    if (this.subtitleTimer !== undefined) {
+      clearInterval(this.subtitleTimer)
+      this.subtitleTimer = undefined
+    }
+    if (this.successTimer !== undefined) {
+      clearTimeout(this.successTimer)
+      this.successTimer = undefined
+    }
+  }
+
+  openGeneratedPreview() {
+    if (this.generatedRecord === undefined) {
+      return
+    }
+    this.clearExportTimers()
+    this.showExportOverlay = false
+    AppStorage.setOrCreate('previewPdfFileName', this.generatedRecord.fileName)
+    AppStorage.setOrCreate('previewPdfFilePath', this.generatedRecord.filePath)
+    AppStorage.setOrCreate('previewPdfPaperSize', this.generatedRecord.paperSize)
+    AppStorage.setOrCreate('previewPdfTemplate', this.generatedRecord.template)
+    AppStorage.setOrCreate('previewPdfPageCount', this.generatedRecord.pageCount)
+    AppStorage.setOrCreate('previewPdfFileSize', this.generatedRecord.fileSize)
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_PREVIEW_PAGE })
   }
 
   getPaperSizeHint(): string {
@@ -715,6 +912,64 @@ export struct bookJournalPage {
       return '大字 · 画册'
     }
     return '留白 · 杂志'
+  }
+
+  getTemplateShortName(template: PdfTemplate): string {
+    if (template === PdfTemplate.BUNKO) {
+      return '手账风'
+    }
+    if (template === PdfTemplate.LETTERPRESS) {
+      return '简约风'
+    }
+    if (template === PdfTemplate.ARTBOOK) {
+      return '艺术风'
+    }
+    return '杂志风'
+  }
+
+  getTemplatePreview(template: PdfTemplate): string {
+    if (template === PdfTemplate.BUNKO) {
+      return '┄┄┄┄┄┄┄┄┄┄'
+    }
+    if (template === PdfTemplate.LETTERPRESS) {
+      return '━━━━━━━━━━━━'
+    }
+    if (template === PdfTemplate.ARTBOOK) {
+      return '▉  ▉  ▉  ▉'
+    }
+    return '      ──  ✦  ──'
+  }
+
+  async loadExportPreferences() {
+    try {
+      const setting = await AppSettingRepository.querySetting(SettingKey.EXPORT_PREFERENCES)
+      if (setting === undefined) {
+        return
+      }
+      const preferences: ExportPreferences = JSON.parse(setting.value) as ExportPreferences
+      if (preferences.paperSize === PaperSize.A4 || preferences.paperSize === PaperSize.A5) {
+        this.selectedPaperSize = preferences.paperSize
+      }
+      if (this.templateOptions.indexOf(preferences.template) >= 0) {
+        this.selectedTemplate = preferences.template
+      }
+    } catch (err) {
+      this.selectedPaperSize = PaperSize.A4
+      this.selectedTemplate = PdfTemplate.MINIMALIST
+    }
+  }
+
+  async saveExportPreferences() {
+    const preferences: ExportPreferences = {
+      paperSize: this.selectedPaperSize,
+      template: this.selectedTemplate,
+      updatedAt: new Date().getTime()
+    }
+    try {
+      await AppSettingRepository.saveSetting(SettingKey.EXPORT_PREFERENCES, JSON.stringify(preferences))
+    } catch (err) {
+      // 导出偏好不是导出主流程的阻断条件，保存失败时仍允许继续生成。
+    }
   }
 
   /**

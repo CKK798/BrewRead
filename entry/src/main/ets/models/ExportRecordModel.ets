@@ -23,7 +23,10 @@ export interface ExportRecordEntity {
   bookId: string
   filePath: string
   paperSize: PaperSize
+  template: PdfTemplate
   fileName: string
+  fileSize: number
+  pageCount: number
   createdAt: number
   updatedAt: number
 }

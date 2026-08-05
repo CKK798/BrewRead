@@ -55,8 +55,15 @@ export class DatabaseManager {
   }
 
   private static async executeMigrationSql(store: relationalStore.RdbStore): Promise<void> {
+    await DatabaseManager.tryExecuteMigrationSql(store, DatabaseSchema.alterEntriesHighlightSql)
+    await DatabaseManager.tryExecuteMigrationSql(store, DatabaseSchema.alterExportRecordsTemplateSql)
+    await DatabaseManager.tryExecuteMigrationSql(store, DatabaseSchema.alterExportRecordsFileSizeSql)
+    await DatabaseManager.tryExecuteMigrationSql(store, DatabaseSchema.alterExportRecordsPageCountSql)
+  }
+
+  private static async tryExecuteMigrationSql(store: relationalStore.RdbStore, sql: string): Promise<void> {
     try {
-      await store.executeSql(DatabaseSchema.alterEntriesHighlightSql)
+      await store.executeSql(sql)
     } catch (err) {
       await Promise.resolve()
     }

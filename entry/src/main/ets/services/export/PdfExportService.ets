@@ -46,6 +46,11 @@ interface PdfStatsSummary {
   moodSummary: string
 }
 
+interface PdfCreateResult {
+  success: boolean
+  pageCount: number
+}
+
 /**
  * PDF 导出服务
  *
@@ -112,8 +117,8 @@ export class PdfExportService {
       if (!FileStorageService.ensureParentDirForFile(fullPath)) {
         return { success: false, message: '导出目录创建失败，请稍后重试' }
       }
-      const saved: boolean = PdfExportService.createPdfFile(book, entries, paperSize, template, now, fullPath)
-      if (!saved) {
+      const createResult: PdfCreateResult = PdfExportService.createPdfFile(book, entries, paperSize, template, now, fullPath)
+      if (!createResult.success) {
         return { success: false, message: 'PDF 文件保存失败，请稍后重试' }
       }
       const fileSize: number = FileStorageService.getFileSize(fullPath)
@@ -127,7 +132,10 @@ export class PdfExportService {
         bookId: book.id,
         filePath: fullPath,
         paperSize: paperSize,
+        template: template,
         fileName: fileName,
+        fileSize: fileSize,
+        pageCount: createResult.pageCount,
         createdAt: now,
         updatedAt: now
       }
@@ -139,7 +147,7 @@ export class PdfExportService {
   }
 
   private static createPdfFile(book: BookEntity, entries: ReadingEntryEntity[], paperSize: PaperSize,
-    template: PdfTemplate, timestamp: number, fullPath: string): boolean {
+    template: PdfTemplate, timestamp: number, fullPath: string): PdfCreateResult {
     const paperConfig: PdfPaperConfig = PdfExportService.getTemplatePaperConfig(paperSize, template)
     const pdfDocument = new pdfService.PdfDocument()
     pdfDocument.createDocument(paperConfig.width, paperConfig.height)
@@ -156,7 +164,11 @@ export class PdfExportService {
     const backPageIndex: number = pdfDocument.getPageCount()
     pdfDocument.insertBlankPage(backPageIndex, paperConfig.width, paperConfig.height)
     PdfExportService.renderBackCoverPage(pdfDocument.getPage(backPageIndex), paperConfig, template, book, stats)
-    return pdfDocument.saveDocument(fullPath)
+    const pageCount: number = pdfDocument.getPageCount()
+    return {
+      success: pdfDocument.saveDocument(fullPath),
+      pageCount: pageCount
+    }
   }
 
   private static renderCoverPage(page: pdfService.PdfPage, config: PdfPaperConfig, template: PdfTemplate, book: BookEntity, entryCount: number,

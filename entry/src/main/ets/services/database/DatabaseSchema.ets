@@ -54,6 +54,9 @@ export class DatabaseSchema {
   static readonly createEntriesBookDateIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_book_date ON reading_entries(book_id, date DESC)'
   static readonly createEntriesHighlightIndexSql: string = 'CREATE INDEX IF NOT EXISTS idx_entries_highlight ON reading_entries(is_highlight, date DESC)'
   static readonly alterEntriesHighlightSql: string = 'ALTER TABLE reading_entries ADD COLUMN is_highlight INTEGER NOT NULL DEFAULT 0'
+  static readonly alterExportRecordsTemplateSql: string = 'ALTER TABLE export_records ADD COLUMN template TEXT NOT NULL DEFAULT "极简留白杂志风"'
+  static readonly alterExportRecordsFileSizeSql: string = 'ALTER TABLE export_records ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0'
+  static readonly alterExportRecordsPageCountSql: string = 'ALTER TABLE export_records ADD COLUMN page_count INTEGER NOT NULL DEFAULT 0'
 
   static readonly createExportRecordsTableSql: string = 'CREATE TABLE IF NOT EXISTS export_records (' +
     'id TEXT PRIMARY KEY, ' +
@@ -61,6 +64,9 @@ export class DatabaseSchema {
     'file_path TEXT NOT NULL, ' +
     'file_name TEXT NOT NULL, ' +
     'paper_size TEXT NOT NULL, ' +
+    'template TEXT NOT NULL DEFAULT "极简留白杂志风", ' +
+    'file_size INTEGER NOT NULL DEFAULT 0, ' +
+    'page_count INTEGER NOT NULL DEFAULT 0, ' +
     'created_at INTEGER NOT NULL, ' +
     'updated_at INTEGER NOT NULL, ' +
     'FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE)'

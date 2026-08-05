@@ -1,5 +1,5 @@
 import { relationalStore } from '@kit.ArkData';
-import { ExportRecordEntity, PaperSize } from '../../models/ExportRecordModel';
+import { ExportRecordEntity, PaperSize, PdfTemplate } from '../../models/ExportRecordModel';
 import { DatabaseManager } from '../database/DatabaseManager';
 import { TableName } from '../database/DatabaseSchema';
 
@@ -58,6 +58,9 @@ export class ExportRecordRepository {
       'file_path': record.filePath,
       'file_name': record.fileName,
       'paper_size': record.paperSize,
+      'template': record.template,
+      'file_size': record.fileSize,
+      'page_count': record.pageCount,
       'created_at': record.createdAt,
       'updated_at': record.updatedAt
     }
@@ -70,8 +73,31 @@ export class ExportRecordRepository {
       filePath: resultSet.getString(resultSet.getColumnIndex('file_path')),
       fileName: resultSet.getString(resultSet.getColumnIndex('file_name')),
       paperSize: resultSet.getString(resultSet.getColumnIndex('paper_size')) as PaperSize,
+      template: ExportRecordRepository.getStringValue(resultSet, 'template', PdfTemplate.MINIMALIST) as PdfTemplate,
+      fileSize: ExportRecordRepository.getLongValue(resultSet, 'file_size', 0),
+      pageCount: ExportRecordRepository.getLongValue(resultSet, 'page_count', 0),
       createdAt: resultSet.getLong(resultSet.getColumnIndex('created_at')),
       updatedAt: resultSet.getLong(resultSet.getColumnIndex('updated_at'))
     }
+  }
+
+  private static getStringValue(resultSet: relationalStore.ResultSet, columnName: string, fallback: string): string {
+    const columnIndex: number = resultSet.getColumnIndex(columnName)
+    if (columnIndex < 0) {
+      return fallback
+    }
+    const value: string = resultSet.getString(columnIndex)
+    if (value.length === 0) {
+      return fallback
+    }
+    return value
+  }
+
+  private static getLongValue(resultSet: relationalStore.ResultSet, columnName: string, fallback: number): number {
+    const columnIndex: number = resultSet.getColumnIndex(columnName)
+    if (columnIndex < 0) {
+      return fallback
+    }
+    return resultSet.getLong(columnIndex)
   }
 }

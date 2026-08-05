@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "storeFile": "C:/Users/Administrator/Desktop/BrewRead/BrewReadv1.0.0.p12",
-          "storePassword": "0000001E8776A76ACFEC21F1A1CD5FAD4B63F83275DA9117AEFA8C6822006AA4BD5D25F5C44EC6AE7DB223025614",
-          "keyAlias": "BrewReadv1.0.0",
-          "keyPassword": "0000001E6432189E07CF520B4F35059FBED548105844AD8F4AC223E31729917886CE61BA76C66518D38EA6C42C13",
+          "certpath": "C:\\Users\\Administrator\\.ohos\\config\\default_harmony_rtYar1pGomGfjyQZarpMvzVRN2GjhLh0xpO_VWoKxKU=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B55E9DDE1A679694DFD5ECFB48DA21CA53536877ED43D686C8B686422E5119C7387744F843D5EBF",
+          "profile": "C:\\Users\\Administrator\\.ohos\\config\\default_harmony_rtYar1pGomGfjyQZarpMvzVRN2GjhLh0xpO_VWoKxKU=.p7b",
           "signAlg": "SHA256withECDSA",
-          "profile": "C:/Users/Administrator/Desktop/BrewRead/BrewReadv1.0.0Release.p7b",
-          "certpath": "C:/Users/Administrator/Desktop/BrewRead/BrewReadv1.0.0.cer"
+          "storeFile": "C:\\Users\\Administrator\\.ohos\\config\\default_harmony_rtYar1pGomGfjyQZarpMvzVRN2GjhLh0xpO_VWoKxKU=.p12",
+          "storePassword": "0000001B96A2C220C64E878C8600F5E55EA6358D44723781D512B11ED33FCD5269C6041B4B1B63DAA07EE7"
         }
       }
     ],

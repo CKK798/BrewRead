@@ -9,7 +9,8 @@
 export enum SettingKey {
   THEME_MODE = 'theme_mode',
   DEFAULT_PAPER_SIZE = 'default_paper_size',
-  LAST_USED_BOOK_ID = 'last_used_book_id'
+  LAST_USED_BOOK_ID = 'last_used_book_id',
+  EXPORT_PREFERENCES = 'export_preferences'
 }
 
 export enum ThemeMode {

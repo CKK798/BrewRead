@@ -1,8 +1,10 @@
 import { picker } from '@kit.CoreFileKit';
 import { pdfService, pdfViewManager, PdfView } from '@kit.PDFKit';
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
+import { ExportRecordEntity, PaperSize, PdfTemplate } from '../../models/ExportRecordModel';
 import { PAGE_PATH } from '../../pagePath';
 import { FileCopyResult, FileStorageService } from '../../services/storage/FileStorageService';
+import { ExportRecordRepository } from '../../services/repository/ExportRecordRepository';
 import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../../theme/ThemeTokens';
 
@@ -26,12 +28,22 @@ export struct pdfPreviewPage {
   @Local totalPage: number = 0
   @Local previewReady: boolean = false
   @Local openMessage: string = ''
+  @Local paperSize: PaperSize = PaperSize.A4
+  @Local template: PdfTemplate = PdfTemplate.MINIMALIST
+  @Local metadataPageCount: number = 0
+  @Local saveMessage: string = ''
+  @Local isSaving: boolean = false
+  private record?: ExportRecordEntity = undefined
 
   aboutToAppear() {
     this.fileName = AppStorage.get<string>('previewPdfFileName') ?? ''
     this.filePath = AppStorage.get<string>('previewPdfFilePath') ?? ''
+    this.paperSize = AppStorage.get<PaperSize>('previewPdfPaperSize') ?? PaperSize.A4
+    this.template = AppStorage.get<PdfTemplate>('previewPdfTemplate') ?? PdfTemplate.MINIMALIST
+    this.metadataPageCount = AppStorage.get<number>('previewPdfPageCount') ?? 0
     this.fileExists = FileStorageService.exists(this.filePath)
     this.fileSize = FileStorageService.getFileSize(this.filePath)
+    this.loadRecordMetadata()
     this.loadPdfPreview()
   }
 
@@ -65,7 +77,7 @@ export struct pdfPreviewPage {
           HMRouterMgr.pop()
         })
       Column() {
-        Text('PDF 文件预览')
+        Text('阅读手账')
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.getPalette().textPrimary)
@@ -111,12 +123,16 @@ export struct pdfPreviewPage {
         .margin({ left: 12 })
       }
       .width('100%')
+      Text(this.paperSize + ' · ' + this.getTemplateShortName() + ' · ' + this.getPageSummary())
+        .fontSize(12)
+        .fontColor(this.getPalette().textSecondary)
+        .margin({ top: 12 })
       Text(this.filePath.length === 0 ? '未获取到文件路径' : this.filePath)
-        .fontSize(11)
+        .fontSize(10)
         .fontColor(this.getPalette().textTertiary)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .margin({ top: 12 })
+        .margin({ top: 8 })
     }
     .width('100%')
     .padding(14)
@@ -179,19 +195,57 @@ export struct pdfPreviewPage {
           })
       }
       .width('100%')
-      Text(this.fileExists ? '保存到可见位置' : '文件不存在，请返回重新导出')
+      Text(this.isSaving ? '正在保存...' : this.fileExists && this.fileSize > 0 ? '保存到可见位置' : '返回重新导出')
         .fontSize(15)
         .fontWeight(FontWeight.Medium)
-        .fontColor(this.fileExists ? this.getPalette().cardBg : '#B65A4B')
+        .fontColor(this.fileExists && this.fileSize > 0 ? this.getPalette().cardBg : this.getPalette().textSecondary)
         .width('100%')
         .height(42)
         .textAlign(TextAlign.Center)
-        .backgroundColor(this.fileExists ? this.getPalette().primary : this.getPalette().inputBg)
+        .backgroundColor(this.fileExists && this.fileSize > 0 ? this.getPalette().primary : this.getPalette().inputBg)
         .borderRadius(21)
         .margin({ top: 12 })
         .onClick(() => {
-          this.savePdfToVisibleLocation()
+          if (this.fileExists && this.fileSize > 0) {
+            this.savePdfToVisibleLocation()
+          } else {
+            HMRouterMgr.pop()
+          }
         })
+      Row() {
+        Text('分享')
+          .fontSize(13)
+          .fontColor(this.getPalette().textTertiary)
+          .layoutWeight(1)
+          .height(36)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.getPalette().inputBg)
+          .borderRadius(18)
+          .onClick(() => {
+            this.openMessage = '分享功能即将支持。'
+          })
+        Text('打印')
+          .fontSize(13)
+          .fontColor(this.getPalette().textTertiary)
+          .layoutWeight(1)
+          .height(36)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.getPalette().inputBg)
+          .borderRadius(18)
+          .margin({ left: 10 })
+          .onClick(() => {
+            this.openMessage = '打印功能即将支持。'
+          })
+      }
+      .width('100%')
+      .margin({ top: 10 })
+      if (this.saveMessage.length > 0) {
+        Text(this.saveMessage)
+          .fontSize(12)
+          .fontColor(this.getPalette().accentGreen)
+          .textAlign(TextAlign.Center)
+          .margin({ top: 10 })
+      }
       if (this.openMessage.length > 0 && this.previewReady) {
         Text(this.openMessage)
           .fontSize(12)
@@ -214,18 +268,65 @@ export struct pdfPreviewPage {
 
   getFileStateText(): string {
     if (!this.fileExists) {
-      return '文件缺失'
+      return '文件缺失 · 请返回重新导出'
     }
     if (this.fileSize <= 0) {
-      return '文件为空 0B'
+      return '文件异常 · 0B 文件无法预览'
     }
-    return '文件可用 · ' + this.fileSize + ' B'
+    return '文件可用 · ' + this.formatFileSize(this.fileSize)
+  }
+
+  getTemplateShortName(): string {
+    if (this.template === PdfTemplate.BUNKO) {
+      return '手账风'
+    }
+    if (this.template === PdfTemplate.LETTERPRESS) {
+      return '简约风'
+    }
+    if (this.template === PdfTemplate.ARTBOOK) {
+      return '艺术风'
+    }
+    return '杂志风'
+  }
+
+  getPageSummary(): string {
+    const pageCount: number = this.metadataPageCount > 0 ? this.metadataPageCount : this.totalPage
+    return (pageCount > 0 ? pageCount : '未知') + ' 页 · ' + this.formatFileSize(this.fileSize)
+  }
+
+  formatFileSize(size: number): string {
+    if (size <= 0) {
+      return '0 B'
+    }
+    if (size >= 1024 * 1024) {
+      return (size / (1024 * 1024)).toFixed(1) + ' MB'
+    }
+    return Math.max(1, Math.round(size / 1024)) + ' KB'
+  }
+
+  async loadRecordMetadata() {
+    try {
+      const records: ExportRecordEntity[] = await ExportRecordRepository.queryAllRecords()
+      const record: ExportRecordEntity | undefined = records.find((item: ExportRecordEntity) => item.filePath === this.filePath)
+      if (record === undefined) {
+        return
+      }
+      this.record = record
+      this.paperSize = record.paperSize
+      this.template = record.template
+      this.metadataPageCount = record.pageCount
+      this.fileSize = record.fileSize
+    } catch (err) {
+      // 元数据缺失不影响文件预览，页面继续使用 AppStorage 和文件系统兜底。
+    }
   }
 
   async loadPdfPreview() {
     this.previewReady = false
     this.totalPage = 0
     this.currentPage = 0
+    this.openMessage = ''
+    this.saveMessage = ''
     this.controller.releaseDocument()
     this.fileExists = FileStorageService.exists(this.filePath)
     this.fileSize = FileStorageService.getFileSize(this.filePath)
@@ -263,6 +364,11 @@ export struct pdfPreviewPage {
       this.openMessage = 'PDF 文件大小为 0B，无法保存为可打开文件，请重新导出。'
       return
     }
+    if (this.isSaving) {
+      return
+    }
+    this.isSaving = true
+    this.saveMessage = ''
     try {
       const documentSaveOptions = new picker.DocumentSaveOptions()
       documentSaveOptions.newFileNames = [this.fileName.length === 0 ? '啡阅导出.pdf' : this.fileName]
@@ -270,12 +376,13 @@ export struct pdfPreviewPage {
       const uriList: string[] = await documentViewPicker.save(documentSaveOptions)
       if (uriList.length === 0) {
         this.openMessage = '没有选择保存位置。'
-        return
+      } else {
+        const copyResult: FileCopyResult = FileStorageService.copyFile(this.filePath, uriList[0])
+        this.saveMessage = copyResult.success ? '已保存到你选择的位置。' : copyResult.message
       }
-      const copyResult: FileCopyResult = FileStorageService.copyFile(this.filePath, uriList[0])
-      this.openMessage = copyResult.message
     } catch (err) {
-      this.openMessage = '保存失败：当前系统文件保存器不可用或目标 URI 无法直接写入。'
+      this.saveMessage = '保存失败：当前系统文件保存器不可用或目标 URI 无法直接写入。'
     }
+    this.isSaving = false
   }
 }

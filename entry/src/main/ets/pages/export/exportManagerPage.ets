@@ -1,6 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { BookEntity } from '../../models/BookModel';
-import { ExportRecordEntity } from '../../models/ExportRecordModel';
+import { ExportRecordEntity, PdfTemplate } from '../../models/ExportRecordModel';
 import { PAGE_PATH } from '../../pagePath';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ExportRecordRepository } from '../../services/repository/ExportRecordRepository';
@@ -14,6 +14,10 @@ interface ExportHistoryItem {
   fileName: string
   bookName: string
   paperSize: string
+  template: PdfTemplate
+  pageSummary: string
+  pageCount: number
+  fileSize: number
   createdAtText: string
   filePath: string
   fileExists: boolean
@@ -140,10 +144,14 @@ export struct exportManagerPage {
             .fontColor('#2C2825')
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(item.bookName + ' · ' + item.paperSize + ' · ' + item.createdAtText)
+          Text(item.bookName + ' · ' + item.paperSize + ' · ' + this.getTemplateShortName(item.template))
             .fontSize(12)
             .fontColor('#7D7872')
             .margin({ top: 5 })
+          Text(item.pageSummary + ' · ' + item.createdAtText)
+            .fontSize(11)
+            .fontColor('#A8A39C')
+            .margin({ top: 4 })
         }
         .layoutWeight(1)
         .alignItems(HorizontalAlign.Start)
@@ -327,10 +335,38 @@ export struct exportManagerPage {
       fileName: record.fileName,
       bookName: book === undefined ? '已删除书籍' : book.name,
       paperSize: record.paperSize,
+      template: record.template,
+      pageSummary: this.getPageSummary(record.pageCount, record.fileSize),
+      pageCount: record.pageCount,
+      fileSize: record.fileSize,
       createdAtText: DateUtils.formatDate(record.createdAt),
       filePath: record.filePath,
       fileExists: FileStorageService.exists(record.filePath)
     }
+  }
+
+  getTemplateShortName(template: PdfTemplate): string {
+    if (template === PdfTemplate.BUNKO) {
+      return '手账风'
+    }
+    if (template === PdfTemplate.LETTERPRESS) {
+      return '简约风'
+    }
+    if (template === PdfTemplate.ARTBOOK) {
+      return '艺术风'
+    }
+    return '杂志风'
+  }
+
+  getPageSummary(pageCount: number, fileSize: number): string {
+    const pageText: string = pageCount > 0 ? pageCount + ' 页' : '页数未知'
+    if (fileSize <= 0) {
+      return pageText
+    }
+    if (fileSize >= 1024 * 1024) {
+      return pageText + ' · ' + (fileSize / (1024 * 1024)).toFixed(1) + ' MB'
+    }
+    return pageText + ' · ' + Math.max(1, Math.round(fileSize / 1024)) + ' KB'
   }
 
   /**
@@ -344,6 +380,10 @@ export struct exportManagerPage {
   openPdfPreviewPage(item: ExportHistoryItem) {
     AppStorage.setOrCreate('previewPdfFileName', item.fileName)
     AppStorage.setOrCreate('previewPdfFilePath', item.filePath)
+    AppStorage.setOrCreate('previewPdfPaperSize', item.paperSize)
+    AppStorage.setOrCreate('previewPdfTemplate', item.template)
+    AppStorage.setOrCreate('previewPdfPageCount', item.pageCount)
+    AppStorage.setOrCreate('previewPdfFileSize', item.fileSize)
     HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_PREVIEW_PAGE })
   }
 
