@@ -24,7 +24,8 @@ const TAB_BAR_HEIGHT: number = 60;
 const TAB_BAR_MARGIN: number = 16;
 const TAB_BAR_BOTTOM_GAP: number = 8;
 const TAB_CONTENT_BOTTOM_SPACE: number = 76;
-const TAB_SWITCH_DELAY: number = 80;
+const TAB_CONTENT_ANIMATION_DURATION: number = 180;
+const TAB_BAR_ANIMATION_DURATION: number = 180;
 
 /**
  * 应用入口页面
@@ -80,7 +81,7 @@ export struct homePage {
       }
       .barHeight(0)
       .scrollable(false)
-      .animationDuration(240)
+      .animationDuration(TAB_CONTENT_ANIMATION_DURATION)
       .onChange((index: number) => {
         this.onContentChange(index)
       })
@@ -115,17 +116,13 @@ export struct homePage {
   }
 
   onTabChange(index: number) {
-    if (index === this.chooseIndex) {
+    if (index === this.currentIndex) {
       return;
     }
 
     this.chooseIndex = index;
-    animateTo({ duration: 300, curve: Curve.Friction }, () => {
-      this.tabsController.changeIndex(index)
-    })
-    setTimeout(() => {
-      this.currentIndex = index;
-    }, TAB_SWITCH_DELAY)
+    this.currentIndex = index;
+    this.tabsController.changeIndex(index)
   }
 
   onContentChange(index: number) {
@@ -164,7 +161,8 @@ export struct homePage {
     .justifyContent(FlexAlign.Center)
     .borderRadius(16)
     .backgroundColor(this.chooseIndex === index ? '#14C2865E' : Color.Transparent)
-    .animation({ duration: 300, curve: Curve.Friction })
+    .scale({ x: this.chooseIndex === index ? 1.04 : 1, y: this.chooseIndex === index ? 1.04 : 1 })
+    .animation({ duration: TAB_BAR_ANIMATION_DURATION, curve: Curve.EaseOut })
     .onClick(() => {
       this.onTabChange(index)
     })

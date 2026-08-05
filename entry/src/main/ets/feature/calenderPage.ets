@@ -1,21 +1,14 @@
 import { HMRouter } from '@hadss/hmrouter';
+import { CJCalendar, CJCalendarControl, CJCellStyle, CJDateItem, CJViewModel, OptMode } from 'cjcalendar';
 import { BookEntity } from '../models/BookModel';
 import { getMoodText, ReadingEntryEntity } from '../models/ReadingEntryModel';
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { DataRefreshService } from '../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../theme/ThemeTokens';
 import { DateUtils } from '../utils/DateUtils';
-
-interface CalendarDayItem {
-  day: string
-  timestamp: number
-  level: number
-  selected: boolean
-  entryCount: number
-  readPages: number
-}
 
 interface DaySummaryItem {
   title: string
@@ -28,9 +21,9 @@ interface DaySummaryItem {
  * 日历页面
  *
  * 多行说明：
- * 1. 当前页面从静态热力点切换为 reading_entries 表真实数据，按当前月份查询日期范围内的记录。
- * 2. 日历网格根据年月动态生成，自动补齐月份首日前的空白格，避免写死某个月的布局。
- * 3. 热力等级由当天阅读页数和记录数共同计算，选中日期后展示当天第一条记录摘要。
+ * 1. 日历主体使用 cjcalendar 单选月视图，避免自绘 Grid 在不同月份首日偏移和选中态刷新上的问题。
+ * 2. reading_entries 表仍是热力、月统计和当日摘要的数据源，月份切换、日期点击和数据变更都会重新查询或刷新展示。
+ * 3. 有阅读记录的日期会显示“记”标注，选中日期后底部摘要同步展示当天第一条阅读记录。
  */
 @HMRouter({ pageUrl: PAGE_PATH.FEATURE_CALENDER_PAGE })
 @ComponentV2
@@ -38,7 +31,7 @@ export struct calenderPage {
   @Local currentYear: number = new Date().getFullYear()
   @Local currentMonth: number = new Date().getMonth()
   @Local selectedTimestamp: number = this.getTodayStartTime()
-  @Local days: CalendarDayItem[] = []
+  @Local selectedItems: string[] = [DateUtils.formatDate(this.getTodayStartTime())]
   @Local monthEntries: ReadingEntryEntity[] = []
   @Local selectedEntries: ReadingEntryEntity[] = []
   @Local daySummary?: DaySummaryItem = undefined
@@ -46,36 +39,56 @@ export struct calenderPage {
   @Local loadError: string = ''
   @Local monthReadDays: number = 0
   @Local monthCoffeeCount: number = 0
-  private weeks: string[] = ['一', '二', '三', '四', '五', '六', '日']
+  private readonly refreshOwnerId: string = 'calenderPage'
+  private calendarController: CJCalendarControl = new CJCalendarControl()
+  private cellStyle: CJCellStyle = new CJCellStyle()
 
-  async aboutToAppear() {
-    await this.loadMonthData()
+  aboutToAppear() {
+    this.initCalendarStyle()
+    DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
+      this.refreshSelectedDaySummary()
+    })
+    DataRefreshService.registerEntryListener(this.refreshOwnerId, () => {
+      this.loadMonthData()
+    })
+    this.loadMonthData()
+  }
+
+  aboutToDisappear() {
+    DataRefreshService.unregisterBookListener(this.refreshOwnerId)
+    DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
   }
 
   build() {
-    Column() {
-      Scroll() {
-        Column() {
-          this.MonthHeader()
-          if (this.loading) {
-            this.LoadingState()
-          } else if (this.loadError.length > 0) {
-            this.ErrorState()
-          } else {
-            this.WeekHeader()
-            this.CalendarGrid()
-            Divider().color('this.getPalette().divider').margin({ top: 22, bottom: 18 })
-            this.DaySummaryCard()
-            this.MonthStats()
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Column() {
+        Scroll() {
+          Column() {
+            if (this.loading) {
+              this.LoadingState()
+            } else if (this.loadError.length > 0) {
+              this.ErrorState()
+            } else {
+              this.CalendarPanel()
+              Divider().color(this.getPalette().divider).margin({ top: 18, bottom: 18 })
+              this.DaySummaryCard()
+              this.MonthStats()
+            }
           }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 20, bottom: 22 })
         }
+        .align(Alignment.Top)
         .width('100%')
-        .padding({ left: 16, right: 16, top: 20, bottom: 22 })
+        .height('100%')
+        .scrollBar(BarState.Off)
       }
-      .align(Alignment.Top)
       .width('100%')
       .height('100%')
-      .scrollBar(BarState.Off)
+
+      if (this.shouldShowTodayButton()) {
+        this.TodayFloatingButton()
+      }
     }
     .backgroundColor(this.getPalette().pageBg)
     .width('100%')
@@ -87,89 +100,61 @@ export struct calenderPage {
   }
 
   @Builder
-  MonthHeader() {
-    Row() {
-      Text('‹')
-        .fontSize(28)
-        .fontColor(this.getPalette().textSecondary)
-        .width(40)
-        .textAlign(TextAlign.Start)
-        .onClick(() => {
-          this.changeMonth(-1)
-        })
-      Text(this.currentYear + '年' + (this.currentMonth + 1) + '月')
-        .fontSize(28)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.getPalette().textPrimary)
-        .layoutWeight(1)
-        .textAlign(TextAlign.Center)
-      Text('›')
-        .fontSize(28)
-        .fontColor(this.getPalette().textSecondary)
-        .width(40)
-        .textAlign(TextAlign.End)
-        .onClick(() => {
-          this.changeMonth(1)
-        })
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-  }
-
-  @Builder
-  WeekHeader() {
-    Row() {
-      ForEach(this.weeks, (item: string) => {
-        Text(item)
-          .fontSize(12)
-          .fontColor(this.getPalette().textTertiary)
-          .textAlign(TextAlign.Center)
-          .layoutWeight(1)
-      }, (item: string) => item)
-    }
-    .width('100%')
-    .margin({ top: 26, bottom: 12 })
-  }
-
-  @Builder
-  CalendarGrid() {
-    Grid() {
-      ForEach(this.days, (item: CalendarDayItem, index: number) => {
-        GridItem() {
-          Column() {
-            Text(item.day)
-              .fontSize(13)
-              .fontColor(item.selected ? this.getPalette().cardBg : 'this.getPalette().textSecondary')
-              .textAlign(TextAlign.Center)
-              .width(30)
-              .height(24)
-              .backgroundColor(item.selected ? this.getPalette().primary : Color.Transparent)
-              .borderRadius(12)
-            if (item.day !== '') {
-              Circle()
-                .width(this.getDotSize(item.level))
-                .height(this.getDotSize(item.level))
-                .fill(this.getDotColor(item.level))
-                .stroke(item.selected ? '#D9A784' : Color.Transparent)
-                .strokeWidth(item.selected ? 2 : 0)
-                .margin({ top: 6 })
-            }
+  CalendarPanel() {
+    Column() {
+      CJCalendar({
+        controller: this.calendarController,
+        optMode: OptMode.SINGLE,
+        viewModel: CJViewModel.MONTH,
+        defSelectedItems: this.selectedItems,
+        initShowDate: new Date(this.currentYear, this.currentMonth, 1),
+        cjCellStyle: this.cellStyle,
+        titleFormat: 'yyyy年MM月',
+        titleFontSize: 26,
+        titleFontColor: this.getPalette().textPrimary,
+        titleBackgroundColor: Color.Transparent,
+        weekTitleFontColor: this.getPalette().textTertiary,
+        showFastToday: false,
+        showToolbar: true,
+        showLunar: false,
+        showJieRi: false,
+        showJieQi: false,
+        onlyShowCurrMonthDay: true,
+        onlyShowDateArea: true,
+        onInitFinish: () => {
+          this.refreshCalendarMarks()
+          this.calendarController.selectItems(this.selectedItems)
+        },
+        onMonthChanged: (month: CJDateItem) => {
+          this.handleMonthChanged(month)
+        },
+        onSelectedChanged: (items: Array<CJDateItem>) => {
+          if (items.length > 0) {
+            this.selectDay(this.getDateItemTimestamp(items[0]))
           }
-          .width('100%')
-          .height(58)
-          .justifyContent(FlexAlign.Center)
-          .onClick(() => {
-            if (item.day !== '') {
-              this.selectDay(item.timestamp)
-            }
-          })
+        },
+        onCellItemClick: (item: CJDateItem) => {
+          this.selectDay(this.getDateItemTimestamp(item))
+          return true
+        },
+        reBuildCellItem: (item: CJDateItem) => {
+          const timestamp: number = this.getDateItemTimestamp(item)
+          const dayEntries: ReadingEntryEntity[] = this.getEntriesByDay(timestamp)
+          if (dayEntries.length > 0) {
+            item.markText = '记'
+          } else {
+            item.markText = ''
+          }
+          return true
+        },
+        buildCellStyle: (item: CJDateItem) => {
+          return this.buildCalendarCellStyle(item)
         }
-      }, (item: CalendarDayItem, index: number) => index.toString())
+      })
     }
-    .columnsTemplate('1fr 1fr 1fr 1fr 1fr 1fr 1fr')
-    .rowsGap(4)
-    .columnsGap(2)
     .width('100%')
+    .padding({ left: 2, right: 2, bottom: 6 })
+    .backgroundColor(Color.Transparent)
   }
 
   @Builder
@@ -182,7 +167,7 @@ export struct calenderPage {
     .width('100%')
     .height(180)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor('this.getPalette().cardBg')
+    .backgroundColor(this.getPalette().cardBg)
     .borderRadius(16)
     .margin({ top: 24 })
   }
@@ -195,7 +180,7 @@ export struct calenderPage {
         .fontColor('#B65A4B')
       Text('点我重试')
         .fontSize(13)
-        .fontColor('this.getPalette().primary')
+        .fontColor(this.getPalette().primary)
         .margin({ top: 10 })
     }
     .width('100%')
@@ -223,7 +208,7 @@ export struct calenderPage {
           .margin({ top: 14 })
         Text('之后可以从这里补记当天的阅读时刻')
           .fontSize(16)
-          .fontColor('this.getPalette().textPrimary')
+          .fontColor(this.getPalette().textPrimary)
           .lineHeight(24)
           .margin({ top: 16 })
       }
@@ -281,14 +266,39 @@ export struct calenderPage {
     .margin({ top: 18 })
   }
 
-  /**
-   * 加载月份阅读记录并生成热力网格
-   *
-   * 多行说明：
-   * 1. 月份范围使用当前年月的第一天 00:00 到下个月第一天前 1ms，避免跨月记录混入当前热力图。
-   * 2. 查询完成后先生成日历格子，再根据每天记录数和页数计算热力等级，保证 UI 与真实数据同步。
-   * 3. 如果当前选中日期不在月份内，则自动选中当月 1 号，保证底部摘要始终有明确日期上下文。
-   */
+  @Builder
+  TodayFloatingButton() {
+    Text('今')
+      .fontSize(16)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(this.getPalette().primary)
+      .width(48)
+      .height(48)
+      .textAlign(TextAlign.Center)
+      .backgroundColor('#CCFFFFFF')
+      .borderRadius(24)
+      .border({ width: 1, color: '#33C2865E' })
+      .shadow({ radius: 10, color: '#14000000', offsetX: 0, offsetY: 3 })
+      .margin({ right: 18, bottom: 18 })
+      .onClick(() => {
+        this.backToday()
+      })
+  }
+
+  initCalendarStyle() {
+    this.cellStyle.fontSize = 14
+    this.cellStyle.fontColor = this.getPalette().textPrimary
+    this.cellStyle.todayFontColor = this.getPalette().primary
+    this.cellStyle.todayBackgroundColor = '#00FFFFFF'
+    this.cellStyle.selectFontColor = '#FFFFFF'
+    this.cellStyle.selectItemBackgroundColor = this.getPalette().primary
+    this.cellStyle.itemBackgroundColor = '#00FFFFFF'
+    this.cellStyle.markFontSize = 10
+    this.cellStyle.markFontColor = '#D9A784'
+    this.cellStyle.markFontWeight = FontWeight.Medium
+    this.cellStyle.markAlignment = Alignment.Bottom
+  }
+
   async loadMonthData() {
     this.loading = true
     this.loadError = ''
@@ -297,47 +307,16 @@ export struct calenderPage {
       const endTime: number = new Date(this.currentYear, this.currentMonth + 1, 1).getTime() - 1
       this.monthEntries = await ReadingEntryRepository.queryEntriesByDateRange(startTime, endTime)
       if (this.selectedTimestamp < startTime || this.selectedTimestamp > endTime) {
-        this.selectedTimestamp = startTime
+        this.selectedTimestamp = this.getMonthDefaultSelectedTime(startTime, endTime)
       }
-      this.buildCalendarDays()
+      this.selectedItems = [DateUtils.formatDate(this.selectedTimestamp)]
+      this.refreshMonthStats()
       await this.refreshSelectedDaySummary()
+      this.refreshCalendarMarks()
     } catch (err) {
       this.loadError = '日历数据加载失败，请稍后重试'
     }
     this.loading = false
-  }
-
-  buildCalendarDays() {
-    const monthFirstDay: Date = new Date(this.currentYear, this.currentMonth, 1)
-    const monthDays: number = new Date(this.currentYear, this.currentMonth + 1, 0).getDate()
-    const firstWeekDay: number = this.getMondayFirstWeekDay(monthFirstDay.getDay())
-    const nextDays: CalendarDayItem[] = []
-    for (let index = 0; index < firstWeekDay; index++) {
-      nextDays.push({ day: '', timestamp: 0, level: 0, selected: false, entryCount: 0, readPages: 0 })
-    }
-    let readDays: number = 0
-    let coffeeCount: number = 0
-    for (let day = 1; day <= monthDays; day++) {
-      const timestamp: number = new Date(this.currentYear, this.currentMonth, day).getTime()
-      const dayEntries: ReadingEntryEntity[] = this.getEntriesByDay(timestamp)
-      const readPages: number = this.calculateDayReadPages(dayEntries)
-      const level: number = this.calculateHeatLevel(dayEntries.length, readPages)
-      if (dayEntries.length > 0) {
-        readDays++
-      }
-      coffeeCount += this.countCoffee(dayEntries)
-      nextDays.push({
-        day: day.toString(),
-        timestamp: timestamp,
-        level: level,
-        selected: this.isSameDay(timestamp, this.selectedTimestamp),
-        entryCount: dayEntries.length,
-        readPages: readPages
-      })
-    }
-    this.days = nextDays
-    this.monthReadDays = readDays
-    this.monthCoffeeCount = coffeeCount
   }
 
   async refreshSelectedDaySummary() {
@@ -357,27 +336,102 @@ export struct calenderPage {
   }
 
   selectDay(timestamp: number) {
-    this.selectedTimestamp = timestamp
-    this.days = this.days.map((item: CalendarDayItem) => {
-      const nextItem: CalendarDayItem = {
-        day: item.day,
-        timestamp: item.timestamp,
-        level: item.level,
-        selected: item.timestamp > 0 && this.isSameDay(item.timestamp, timestamp),
-        entryCount: item.entryCount,
-        readPages: item.readPages
-      }
-      return nextItem
-    })
+    this.selectedTimestamp = this.getDayStartTime(timestamp)
+    this.selectedItems = [DateUtils.formatDate(this.selectedTimestamp)]
     this.refreshSelectedDaySummary()
   }
 
-  changeMonth(offset: number) {
-    const nextDate: Date = new Date(this.currentYear, this.currentMonth + offset, 1)
-    this.currentYear = nextDate.getFullYear()
-    this.currentMonth = nextDate.getMonth()
-    this.selectedTimestamp = nextDate.getTime()
+  handleMonthChanged(month: CJDateItem) {
+    const timestamp: number = this.getDateItemTimestamp(month)
+    const date: Date = new Date(timestamp)
+    if (date.getFullYear() === this.currentYear && date.getMonth() === this.currentMonth) {
+      return
+    }
+    this.currentYear = date.getFullYear()
+    this.currentMonth = date.getMonth()
+    const startTime: number = new Date(this.currentYear, this.currentMonth, 1).getTime()
+    const endTime: number = new Date(this.currentYear, this.currentMonth + 1, 1).getTime() - 1
+    if (this.selectedTimestamp < startTime || this.selectedTimestamp > endTime) {
+      this.selectedTimestamp = startTime
+      this.selectedItems = [DateUtils.formatDate(this.selectedTimestamp)]
+    }
     this.loadMonthData()
+  }
+
+  backToday() {
+    const today: number = this.getTodayStartTime()
+    const date: Date = new Date(today)
+    this.currentYear = date.getFullYear()
+    this.currentMonth = date.getMonth()
+    this.selectedTimestamp = today
+    this.selectedItems = [DateUtils.formatDate(today)]
+    this.calendarController.backToday()
+    this.loadMonthData()
+  }
+
+  shouldShowTodayButton(): boolean {
+    const today: Date = new Date()
+    return this.currentYear !== today.getFullYear() || this.currentMonth !== today.getMonth()
+  }
+
+  refreshCalendarMarks() {
+    this.calendarController.refresh()
+    this.calendarController.selectItems(this.selectedItems)
+  }
+
+  refreshMonthStats() {
+    let readDays: string[] = []
+    let coffeeCount: number = 0
+    this.monthEntries.forEach((entry: ReadingEntryEntity) => {
+      const dayKey: string = DateUtils.formatDate(entry.date)
+      if (readDays.indexOf(dayKey) < 0) {
+        readDays.push(dayKey)
+      }
+      if (entry.coffee !== undefined && entry.coffee.length > 0) {
+        coffeeCount++
+      }
+    })
+    this.monthReadDays = readDays.length
+    this.monthCoffeeCount = coffeeCount
+  }
+
+  buildCalendarCellStyle(item: CJDateItem): CJCellStyle {
+    const style: CJCellStyle = new CJCellStyle()
+    style.fontSize = 14
+    style.fontColor = this.getPalette().textPrimary
+    style.todayFontColor = this.getPalette().primary
+    style.todayBackgroundColor = '#00FFFFFF'
+    style.selectFontColor = '#FFFFFF'
+    style.selectItemBackgroundColor = this.getPalette().primary
+    style.itemBackgroundColor = '#00FFFFFF'
+    style.markFontSize = 10
+    style.markFontColor = '#D9A784'
+    style.markFontWeight = FontWeight.Medium
+    style.markAlignment = Alignment.Bottom
+
+    const timestamp: number = this.getDateItemTimestamp(item)
+    const dayEntries: ReadingEntryEntity[] = this.getEntriesByDay(timestamp)
+    if (dayEntries.length > 0 && !item.isSelected) {
+      const level: number = this.calculateHeatLevel(dayEntries.length, this.calculateDayReadPages(dayEntries))
+      style.itemBackgroundColor = this.getHeatBackgroundColor(level)
+      style.fontColor = this.getPalette().textPrimary
+    }
+    return style
+  }
+
+  getMonthDefaultSelectedTime(startTime: number, endTime: number): number {
+    const today: number = this.getTodayStartTime()
+    if (today >= startTime && today <= endTime) {
+      return today
+    }
+    return startTime
+  }
+
+  getDateItemTimestamp(item: CJDateItem): number {
+    if (item.time > 0) {
+      return this.getDayStartTime(item.time)
+    }
+    return new Date(item.fullYear, item.month - 1, item.date).getTime()
   }
 
   getEntriesByDay(timestamp: number): ReadingEntryEntity[] {
@@ -391,28 +445,11 @@ export struct calenderPage {
       leftDate.getDate() === rightDate.getDate()
   }
 
-  getMondayFirstWeekDay(day: number): number {
-    if (day === 0) {
-      return 6
-    }
-    return day - 1
-  }
-
   calculateDayReadPages(entries: ReadingEntryEntity[]): number {
     let total: number = 0
     entries.forEach((entry: ReadingEntryEntity) => {
       if (entry.pageFrom !== undefined && entry.pageTo !== undefined && entry.pageTo >= entry.pageFrom) {
         total += entry.pageTo - entry.pageFrom + 1
-      }
-    })
-    return total
-  }
-
-  countCoffee(entries: ReadingEntryEntity[]): number {
-    let total: number = 0
-    entries.forEach((entry: ReadingEntryEntity) => {
-      if (entry.coffee !== undefined && entry.coffee.length > 0) {
-        total++
       }
     })
     return total
@@ -431,6 +468,19 @@ export struct calenderPage {
     return 1
   }
 
+  getHeatBackgroundColor(level: number): string {
+    if (level === 1) {
+      return '#1AD9A784'
+    }
+    if (level === 2) {
+      return '#33D9A784'
+    }
+    if (level === 3) {
+      return '#4DC2865E'
+    }
+    return '#00FFFFFF'
+  }
+
   getPageText(entry: ReadingEntryEntity): string {
     if (entry.pageFrom !== undefined && entry.pageTo !== undefined) {
       return '第 ' + entry.pageFrom + ' — ' + entry.pageTo + ' 页'
@@ -446,29 +496,8 @@ export struct calenderPage {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   }
 
-  getDotSize(level: number): number {
-    if (level === 1) {
-      return 8
-    }
-    if (level === 2) {
-      return 12
-    }
-    if (level === 3) {
-      return 16
-    }
-    return 5
-  }
-
-  getDotColor(level: number): string {
-    if (level === 1) {
-      return '#33D9A784'
-    }
-    if (level === 2) {
-      return '#66D9A784'
-    }
-    if (level === 3) {
-      return '#B3C2865E'
-    }
-    return '#00000000'
+  getDayStartTime(timestamp: number): number {
+    const date: Date = new Date(timestamp)
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   }
 }

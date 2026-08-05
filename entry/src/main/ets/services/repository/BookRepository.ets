@@ -2,6 +2,7 @@ import { relationalStore } from '@kit.ArkData';
 import { BookEntity, BookStatus } from '../../models/BookModel';
 import { DatabaseManager } from '../database/DatabaseManager';
 import { TableName } from '../database/DatabaseSchema';
+import { DataRefreshService } from '../refresh/DataRefreshService';
 
 /**
  * 书籍 Repository
@@ -14,21 +15,27 @@ import { TableName } from '../database/DatabaseSchema';
 export class BookRepository {
   static async insertBook(book: BookEntity): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
-    return await store.insert(TableName.books, BookRepository.toValueBucket(book))
+    const result: number = await store.insert(TableName.books, BookRepository.toValueBucket(book))
+    DataRefreshService.notifyBooksChanged()
+    return result
   }
 
   static async updateBook(book: BookEntity): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.books)
     predicates.equalTo('id', book.id)
-    return await store.update(BookRepository.toValueBucket(book), predicates)
+    const result: number = await store.update(BookRepository.toValueBucket(book), predicates)
+    DataRefreshService.notifyBooksChanged()
+    return result
   }
 
   static async deleteBook(bookId: string): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.books)
     predicates.equalTo('id', bookId)
-    return await store.delete(predicates)
+    const result: number = await store.delete(predicates)
+    DataRefreshService.notifyAllChanged()
+    return result
   }
 
   static async queryAllBooks(): Promise<BookEntity[]> {

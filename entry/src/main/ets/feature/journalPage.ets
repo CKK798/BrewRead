@@ -4,6 +4,7 @@ import { getMoodColor, getMoodText, ReadingEntryEntity } from '../models/Reading
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { DataRefreshService } from '../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../theme/ThemeTokens';
 import { DateUtils } from '../utils/DateUtils';
@@ -44,9 +45,21 @@ export struct journalPage {
   @Local totalReadPages: number = 0
   @Local showExportBookSelector: boolean = false
   @Local exportBooks: ExportBookOption[] = []
+  private readonly refreshOwnerId: string = 'journalPage'
 
   async aboutToAppear() {
+    DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
+      this.loadEntries()
+    })
+    DataRefreshService.registerEntryListener(this.refreshOwnerId, () => {
+      this.loadEntries()
+    })
     await this.loadEntries()
+  }
+
+  aboutToDisappear() {
+    DataRefreshService.unregisterBookListener(this.refreshOwnerId)
+    DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
   }
 
   build() {

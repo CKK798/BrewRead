@@ -6,6 +6,7 @@ import { PAGE_PATH } from '../../pagePath';
 import { PdfExportResult, PdfExportService } from '../../services/export/PdfExportService';
 import { BookRepository } from '../../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../../services/repository/ReadingEntryRepository';
+import { DataRefreshService } from '../../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../../theme/ThemeTokens';
 import { DateUtils } from '../../utils/DateUtils';
@@ -55,10 +56,22 @@ export struct bookJournalPage {
   @Local selectedTemplate: PdfTemplate = PdfTemplate.MINIMALIST
   @Local showTemplatePicker: boolean = false
   private bookId: string = ''
+  private readonly refreshOwnerId: string = 'bookJournalPage'
 
   async aboutToAppear() {
     this.bookId = AppStorage.get<string>('selectedBookId') ?? ''
+    DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
+      this.loadJournal()
+    })
+    DataRefreshService.registerEntryListener(this.refreshOwnerId, () => {
+      this.loadJournal()
+    })
     await this.loadJournal()
+  }
+
+  aboutToDisappear() {
+    DataRefreshService.unregisterBookListener(this.refreshOwnerId)
+    DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
   }
 
   build() {

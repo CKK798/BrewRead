@@ -3,6 +3,7 @@ import { BookEntity, BookStatus, BookWithProgress } from '../models/BookModel';
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { DataRefreshService } from '../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../theme/ThemeTokens';
 import { BookUtils } from '../utils/BookUtils';
@@ -35,9 +36,21 @@ export struct bookShelfPage {
   @Local loadError: string = ''
   private statusTabs: string[] = ['在读', '已读完', '想读']
   private statusValues: BookStatus[] = [BookStatus.READING, BookStatus.FINISHED, BookStatus.WANT]
+  private readonly refreshOwnerId: string = 'bookShelfPage'
 
   async aboutToAppear() {
+    DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
+      this.loadBooks()
+    })
+    DataRefreshService.registerEntryListener(this.refreshOwnerId, () => {
+      this.loadBooks()
+    })
     await this.loadBooks()
+  }
+
+  aboutToDisappear() {
+    DataRefreshService.unregisterBookListener(this.refreshOwnerId)
+    DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
   }
 
   build() {

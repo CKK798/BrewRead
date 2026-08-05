@@ -2,6 +2,7 @@ import { relationalStore } from '@kit.ArkData';
 import { ReadingEntryEntity, ReadingMood } from '../../models/ReadingEntryModel';
 import { DatabaseManager } from '../database/DatabaseManager';
 import { TableName } from '../database/DatabaseSchema';
+import { DataRefreshService } from '../refresh/DataRefreshService';
 
 /**
  * 阅读记录 Repository
@@ -14,21 +15,27 @@ import { TableName } from '../database/DatabaseSchema';
 export class ReadingEntryRepository {
   static async insertEntry(entry: ReadingEntryEntity): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
-    return await store.insert(TableName.readingEntries, ReadingEntryRepository.toValueBucket(entry))
+    const result: number = await store.insert(TableName.readingEntries, ReadingEntryRepository.toValueBucket(entry))
+    DataRefreshService.notifyEntriesChanged()
+    return result
   }
 
   static async updateEntry(entry: ReadingEntryEntity): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.readingEntries)
     predicates.equalTo('id', entry.id)
-    return await store.update(ReadingEntryRepository.toValueBucket(entry), predicates)
+    const result: number = await store.update(ReadingEntryRepository.toValueBucket(entry), predicates)
+    DataRefreshService.notifyEntriesChanged()
+    return result
   }
 
   static async deleteEntry(entryId: string): Promise<number> {
     const store: relationalStore.RdbStore = DatabaseManager.getStore()
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TableName.readingEntries)
     predicates.equalTo('id', entryId)
-    return await store.delete(predicates)
+    const result: number = await store.delete(predicates)
+    DataRefreshService.notifyEntriesChanged()
+    return result
   }
 
   static async queryAllEntries(): Promise<ReadingEntryEntity[]> {

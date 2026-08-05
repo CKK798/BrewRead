@@ -4,6 +4,7 @@ import { getMoodColor, getMoodText, ReadingEntryEntity, ReadingMood } from '../m
 import { PAGE_PATH } from '../pagePath';
 import { BookRepository } from '../services/repository/BookRepository';
 import { ReadingEntryRepository } from '../services/repository/ReadingEntryRepository';
+import { DataRefreshService } from '../services/refresh/DataRefreshService';
 import { ThemePreferenceService } from '../services/theme/ThemePreferenceService';
 import { ThemePalette } from '../theme/ThemeTokens';
 
@@ -74,9 +75,21 @@ export struct mePage {
     // { title: '外观设置', desc: '浅色、深色或跟随系统', icon: '◐' },
     // { title: '备份与恢复', desc: '本地数据导出与导入', icon: '↻' }
   ]
+  private readonly refreshOwnerId: string = 'mePage'
 
   async aboutToAppear() {
+    DataRefreshService.registerBookListener(this.refreshOwnerId, () => {
+      this.loadStatistics()
+    })
+    DataRefreshService.registerEntryListener(this.refreshOwnerId, () => {
+      this.loadStatistics()
+    })
     await this.loadStatistics()
+  }
+
+  aboutToDisappear() {
+    DataRefreshService.unregisterBookListener(this.refreshOwnerId)
+    DataRefreshService.unregisterEntryListener(this.refreshOwnerId)
   }
 
   getPalette(): ThemePalette {
