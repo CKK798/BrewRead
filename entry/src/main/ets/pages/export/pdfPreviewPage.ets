@@ -212,33 +212,18 @@ export struct pdfPreviewPage {
             HMRouterMgr.pop()
           }
         })
-      Row() {
-        Text('分享')
-          .fontSize(13)
-          .fontColor(this.getPalette().textTertiary)
-          .layoutWeight(1)
-          .height(36)
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.getPalette().inputBg)
-          .borderRadius(18)
-          .onClick(() => {
-            this.openMessage = '分享功能即将支持。'
-          })
-        Text('打印')
-          .fontSize(13)
-          .fontColor(this.getPalette().textTertiary)
-          .layoutWeight(1)
-          .height(36)
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.getPalette().inputBg)
-          .borderRadius(18)
-          .margin({ left: 10 })
-          .onClick(() => {
-            this.openMessage = '打印功能即将支持。'
-          })
-      }
-      .width('100%')
-      .margin({ top: 10 })
+      Text('分享')
+        .fontSize(13)
+        .fontColor(this.getPalette().textTertiary)
+        .width('100%')
+        .height(36)
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.getPalette().inputBg)
+        .borderRadius(18)
+        .margin({ top: 10 })
+        .onClick(() => {
+          this.openMessage = '分享功能即将支持。'
+        })
       if (this.saveMessage.length > 0) {
         Text(this.saveMessage)
           .fontSize(12)

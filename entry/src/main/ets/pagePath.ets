@@ -50,4 +50,6 @@ export class PAGE_PATH {
   static readonly BACKUP_PAGE: string = "backupPage"
   /**PDF 预览页面*/
   static readonly PDF_PREVIEW_PAGE: string = "pdfPreviewPage"
+  /**PDF 导出编辑页面*/
+  static readonly PDF_EXPORT_EDIT_PAGE: string = "pdfExportEditPage"
 }

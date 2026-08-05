@@ -494,7 +494,7 @@ export struct journalPage {
   openBookJournalForExport(bookId: string) {
     this.showExportBookSelector = false
     AppStorage.setOrCreate('selectedBookId', bookId)
-    HMRouterMgr.push({ pageUrl: PAGE_PATH.BOOK_JOURNAL_PAGE })
+    HMRouterMgr.push({ pageUrl: PAGE_PATH.PDF_EXPORT_EDIT_PAGE })
   }
 
   /**
